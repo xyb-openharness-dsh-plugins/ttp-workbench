@@ -1159,8 +1159,7 @@
    宿主形态优先 bootstrap（读模型还原 demo 形状，parity 由测试断言）；
    file:// 与拉取失败回退演示数据：不裸 throw、不白屏。 */
 ;(function () {
-  var apiBase = window.__API_BASE__;
-  if (apiBase == null) apiBase = '';
+  var apiBase = "__API_BASE__"; /* 令牌会被宿主注入成字符串字面量；不要写成 window.__API_BASE__（替换后会变成 window./api/ttp） */
   if (location.protocol === 'file:') return;
   fetch(apiBase + '/api/bootstrap').then(function (r) {
     if (!r.ok) throw new Error('HTTP ' + r.status);

@@ -99,7 +99,7 @@
           { org: '国家药监局药品审评中心（CDE）', doc: '公开受理与优先审评信息公示', url: 'https://www.cde.org.cn/main/xxgk/listpage/2f78f372d351c6851af7431c7710a731', kind: 'registry', entry: true, note: '受理号 JXSS2500053 于 2026-11-03 核验；批准状态未核实' },
           GUIDE_SRC
         ]
-      }
+    }
     ]
   };
 })();

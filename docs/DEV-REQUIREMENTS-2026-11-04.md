@@ -29,3 +29,15 @@ ORDER BY rowid；显式 null；in_use；分节 *_title；分类不进趋势；�
 | 品牌占位名 | 小宁宝 | 晨审改名 |
 | 置换疗程单元 | 一次发作内逐次置换 | 患者反馈后调整 |
 | 化验可比组 | 指标+方法+单位+机构 | 临床审核后简化 |
+
+## §六 夜班实测新增坑（M9 回流，均带错误来源）
+
+| 坑 | 错误来源 | 断言/预防 |
+| --- | --- | --- |
+| 生成代码里令牌写成 `window.__API_BASE__`，宿主注入后变 `window./api/ttp` 语法错误 → 业务帧整帧不执行（dev-server 形态 API_BASE='' 看不出） | V2 装机实测（0.2.0 激活失败，harness.log 无报错行、主区空白） | scripts/check-public-tokens.mjs 进 check 链 |
+| fetch 脚本 jsonl 字段 `sponsor` 与 sqlite 插入读取 `r.sponsors` 不一致 → 库内全 null、快照一致性检查 179 处 mismatch | M4 check-trial-snapshot 首跑全红 | 一致性检查器本身就是断言（已进链）；回流 starter LESSONS |
+| dsh/demo.js import ../demo/build-demo-data.mjs 而 pack files 白名单缺 demo/ → 装机后 ERR_MODULE_NOT_FOUND（esophageal/gastric/gist/colorectal 四仓同坑激活失败） | 宿主 harness.log 2026-11-04 本次运行段 | files 白名单含 demo/（本仓已含）；LESSONS 已有同类条目（ATTR 0.2.1），回流补充「同坑四连」证据 |
+| check-conformance trend 段解析依赖 `\n    }` 缩进形态 | dsh-wb-cli audit primer/趋势段 待人工 | primer-data trend 段闭合缩进按解析器约定 |
+| README 疾病概要必须 ### 四段三级标题 | dsh-wb-cli audit primer/README fail | 已补 |
+| SVG 文本必须经 textNode 追加（svgEl 不收子字符串则全部空文本，且无报错） | M2 探针 B2/B4 假绿暴露 | 探针「先证非空」前置断言兜住 |
+| 只改 hash 的同文档导航不触发 boot（缺 hashchange 监听 → 探针 18 页假失败/假成功） | M2 探针 A 段 | hashchange 已挂；探针逐页断言 |

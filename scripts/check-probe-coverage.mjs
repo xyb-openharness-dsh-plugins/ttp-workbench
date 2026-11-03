@@ -55,7 +55,7 @@ function extractRoutes(src) {
 
 /* 全量渲染探针：必须覆盖每一条叶子路由。新项目改名/新增探针时改这里。 */
 const ALL_ROUTE_PROBES = [
-  'scripts/probe-aml-m2.mjs',
+  'scripts/probe-ttp-m2.mjs',
 ];
 /* 抽样探针：只要求它列出的路由在 ROUTES 里真实存在（防止页面改名后探针扫空气仍全绿）。 */
 const SAMPLE_PROBES = [

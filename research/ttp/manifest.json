@@ -1,0 +1,49 @@
+{
+  "topic": "ttp",
+  "year": "2026",
+  "snapshotDate": "2026-11-04",
+  "tool": "unified-trial-mcp @ /Users/qinxiaoqiang/Downloads/unified_search_trials/dist/src/cli/main.js",
+  "queries": [
+    {
+      "keyword": "血栓性血小板减少性紫癜",
+      "note": "中文标准名"
+    },
+    {
+      "keyword": "thrombotic thrombocytopenic purpura",
+      "note": "英文标准名"
+    },
+    {
+      "keyword": "TTP",
+      "note": "英文缩写"
+    },
+    {
+      "keyword": "血栓性微血管病",
+      "note": "上位词宽检索（去重靠登记号）"
+    },
+    {
+      "keyword": "Upshaw-Schulman",
+      "note": "遗传型别名"
+    },
+    {
+      "keyword": "获得性TTP",
+      "note": "中文别名"
+    }
+  ],
+  "perSourceLimit": 200,
+  "recordCount": 193,
+  "dbCount": 193,
+  "sourceStatusRows": 36,
+  "honesty": {
+    "offlineCorpora": "ChiCTR/CDE/CTV 离线语料仅胰腺癌覆盖；TTP 只依赖在线通道终态，见 source_statuses 表",
+    "statusWording": "登记 ≠ 有效 ≠ 安全 ≠ 可入组；状态一律\"登记状态，未核实\"",
+    "mergeRule": "仅同一登记号（NCT/ChiCTR/CDE 等）合并，其余并排保留来源"
+  },
+  "files": {
+    "trials-2026.jsonl": {
+      "sha256": "6935888d2ec7b58c39dfc02fc3d6a0de729c8b501ad3012831f894313edf0775"
+    },
+    "ttp_trials_2026.sqlite": {
+      "sha256": "66467fc9ac4157e07ad77235f6ea1008c1f1cd057e9ee833699b2bb23c2434e1"
+    }
+  }
+}

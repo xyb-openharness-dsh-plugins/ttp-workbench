@@ -1,0 +1,81 @@
+<!doctype html>
+<!-- 小宁宝 · 血栓性血小板减少性紫癜（TTP）工作台 · 交互原型 v0.2
+     全部数据为合成示例；本文件为原型声明层外壳，业务渲染见 app.js。
+     版本字面量唯一来源是仓根 VERSION；页面不写版本号（35 号口径）。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小宁宝 · TTP 工作台</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="../assets/patterns/disease-primer.css">
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+
+<div class="demo-strip" id="demo-strip">本机数据 · 不上传 · AI 面板由宿主提供 · 业务数据仍为演示内容直到导入真实资料</div>
+
+<div class="shell">
+  <aside class="sidebar" aria-label="主导航">
+    <div class="brand"><span class="dot" aria-hidden="true"></span>小宁宝 · TTP 工作台</div>
+    <button class="profile-btn" id="profile-btn" data-action="profiles" aria-haspopup="dialog">
+      <span class="p-name" id="profile-name">—</span>
+      <span class="p-tag" id="profile-tag">—</span>
+    </button>
+    <nav id="nav" aria-label="一级导航"></nav>
+  </aside>
+
+  <div class="col" style="flex:1;display:flex;flex-direction:column;min-width:0;">
+    <header class="topbar">
+      <strong id="top-title">看板</strong>
+      <span class="status-line" id="status-line">演示模式 · 数据仅在本页内存中</span>
+      <div class="top-actions">
+        <button data-action="dataroot" aria-label="资料目录：演示模式，未连接">资料目录</button>
+        <button data-action="settings" aria-label="打开设置：数据口径与大字">设置</button>
+        <button data-action="font" id="font-toggle" aria-pressed="false" title="切换大字">大字 Aa</button>
+        <button data-action="ai" id="agent-toggle" aria-expanded="false" aria-controls="agent-panel" aria-label="AI 对话（演示，未接通）">AI</button>
+        <button class="ver-chip" data-action="about" aria-label="关于小宁宝：版本与口径说明">__VERSION_DISPLAY__</button>
+        <button data-action="primer" class="dp-trigger" data-primer-open aria-label="疾病概要：定义、医学资料规范和指南情况、治疗全景、发展趋势">?</button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <main id="main" tabindex="-1" aria-live="polite"></main>
+      <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" aria-label="拖动调整 AI 面板宽度" tabindex="0" aria-valuemin="25" aria-valuemax="45" aria-valuenow="35"></div>
+      <aside class="agent" id="agent-panel" aria-label="AI 对话面板">
+        <div class="agent-head"><strong>和 AI 讨论</strong>
+          <button class="text-button" data-action="ai-collapse" aria-label="收起 AI 面板">收起</button>
+        </div>
+        <div class="agent-log" id="agent-log"></div>
+        <div class="agent-note" id="agent-note">演示态：未接通原生会话，内容不会发送到任何服务。</div>
+        <div class="agent-compose">
+          <textarea id="agent-input" placeholder="（未接通：此处只是草稿，不会发送）" aria-label="AI 对话草稿（未接通）"></textarea>
+          <button class="primary" data-action="ai-send" id="agent-send" disabled>发送</button>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="foot">
+      <span>小宁宝 · 血栓性血小板减少性紫癜（TTP）工作台</span>
+      <span id="foot-version">版本：<span data-version-placeholder>__VERSION_DISPLAY__</span></span>
+      <span>仅回顾与整理，不解读；解读归医生</span>
+      <span id="foot-demo">合成示例 · 未连接宿主</span>
+    </footer>
+  </div>
+</div>
+
+<div class="pageview" id="pv-view" hidden role="dialog" aria-label="整页视图"></div>
+<div class="modal-back" id="modal-back" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-head"><span id="modal-title">对话框</span><button class="text-button" data-action="modal-close">关闭</button></div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script src="demo-data.js"></script>
+<script src="primer-data.js"></script>
+<script src="../assets/patterns/disease-primer.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -209,7 +209,7 @@ async function main() {
   const insStatus = db.prepare('INSERT INTO source_statuses (query, source_id, state, reason_code, coverage, completeness, total_records) VALUES (?,?,?,?,?,?,?)');
   for (const l of lines) {
     const r = JSON.parse(l);
-    insTrial.run(r.recordId, JSON.stringify(r.mergedSources), r.sourceId, r.title, r.studyType, r.sponsors ? JSON.stringify(r.sponsors) : null, r.registryNumbers ? JSON.stringify(r.registryNumbers) : null, r.dates ? JSON.stringify(r.dates) : null, r.sourceUrl, r.retrievedAt, r.statusNote, r.snapshotDate);
+    insTrial.run(r.recordId, JSON.stringify(r.mergedSources), r.sourceId, r.title, r.studyType, r.sponsor ? JSON.stringify(r.sponsor) : null, r.registryNumbers ? JSON.stringify(r.registryNumbers) : null, r.dates ? JSON.stringify(r.dates) : null, r.sourceUrl, r.retrievedAt, r.statusNote, r.snapshotDate);
   }
   for (const qs of perQuery) {
     for (const s of qs.statuses) insStatus.run(qs.query, s.sourceId, s.state, s.reasonCode, qs.coverage ? JSON.stringify(qs.coverage) : null, qs.completeness ? JSON.stringify(qs.completeness) : null, qs.totalRecords ?? null);

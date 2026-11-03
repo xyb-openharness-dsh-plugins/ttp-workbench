@@ -40,10 +40,10 @@
   },
   "files": {
     "trials-2026.jsonl": {
-      "sha256": "6935888d2ec7b58c39dfc02fc3d6a0de729c8b501ad3012831f894313edf0775"
+      "sha256": "7b0c64bc7fb153527617fd09cd1c2e9264aa7ae41ace23794324232cdcbb4140"
     },
     "ttp_trials_2026.sqlite": {
-      "sha256": "66467fc9ac4157e07ad77235f6ea1008c1f1cd057e9ee833699b2bb23c2434e1"
+      "sha256": "28340b5eb4ef1b5c8dae9b8845256af558a0125c5794830eb2a552d76e06a985"
     }
   }
 }

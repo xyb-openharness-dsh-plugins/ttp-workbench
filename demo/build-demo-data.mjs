@@ -171,6 +171,14 @@
     source: '复诊记录 · 2026-03-17'
   };
 
+  var questionsA = [
+    { id: 'A-Q1', kind: 'view', content: 'ADAMTS13 活性长期偏低意味着什么？（想问医生，不是结论）', created: '2026-09-16' }
+  ];
+  var questionsB = [
+    { id: 'B-Q1', kind: 'fact', content: '下次复查要不要加做 ADAMTS13 活性？', created: '2026-09-16' },
+    { id: 'B-Q2', kind: 'view', content: '缓解期用药方案现在是什么？想核对记录有没有漏（剂量以医嘱原文为准）', created: '2026-09-16' }
+  ];
+
   var sitesA = [
     { id: 'A-S1', name: '市一医院', department: '血液科', contact: '021-6324xxxx（急诊转血液科）', ord: 0 }
   ];
@@ -182,13 +190,13 @@
   DEMO.profiles.A = {
     id: 'A', name: '档案 A · 刚确诊', tag: '合成示例 · 记录少、多处未知',
     anchor: '2026-09-09', anchorLabel: '首发日期',
-    episodes: epsA, labs: labsA, pe: peA, meds: medsA, docs: docsA, notes: notesA, sites: sitesA, plan: null,
+    episodes: epsA, labs: labsA, pe: peA, meds: medsA, docs: docsA, notes: notesA, sites: sitesA, questions: questionsA, plan: null,
     followUp: { text: '医生提到的随访安排：出院后先每月复查（医生口头），具体以医生安排为准', source: '出院随访单（未取得原件）' }
   };
   DEMO.profiles.B = {
     id: 'B', name: '档案 B · 多年随访', tag: '合成示例 · 三年三次发作、指标与置换记录齐全',
     anchor: '2023-10-02', anchorLabel: '首发日期',
-    episodes: epsB, labs: labsB, pe: peB, meds: medsB, docs: docsB, notes: notesB, sites: sitesB, plan: planB,
+    episodes: epsB, labs: labsB, pe: peB, meds: medsB, docs: docsB, notes: notesB, sites: sitesB, questions: questionsB, plan: planB,
     followUp: { text: '医生 2026-03-17 提到的节奏：前半年每 3 个月复诊一次，之后按医生安排（患者记录）', source: '复诊记录 · 2026-03-17' }
   };
 

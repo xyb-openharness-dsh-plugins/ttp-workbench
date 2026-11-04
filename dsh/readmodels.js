@@ -67,9 +67,12 @@ export function readProfile(db, profileId) {
   const sites = db.prepare('SELECT * FROM visit_site WHERE profile_id = ? AND in_use = 1 ORDER BY ord, rowid').all(profileId).map((v) => ({
     id: 'S' + v.id, name: v.name, department: v.department || '', contact: v.contact_text || v.contact_ref || '', ord: v.ord, revision: v.revision,
   }));
+  const questions = db.prepare("SELECT * FROM question WHERE profile_id = ? ORDER BY rowid").all(profileId).map((qq) => ({
+    id: 'Q' + qq.id, kind: qq.kind, content: qq.content, created: (qq.created_at || '').slice(0, 10),
+  }));
   return {
     id: pr.id, name: pr.name, tag: pr.tag || '合成示例', anchor: pr.anchor_date, anchorLabel: '首发日期',
-    episodes, labs, pe, meds, docs, notes, sites, plan: null, followUp: null,
+    episodes, labs, pe, meds, docs, notes, sites, questions, plan: null, followUp: null,
   };
 }
 

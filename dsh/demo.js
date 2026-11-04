@@ -29,6 +29,7 @@ export function seedDemoData(db, { force = false } = {}) {
     const insPlan = db.prepare('INSERT INTO action_plan (profile_id,source_text,source_ref,recorded_at,author_role) VALUES (?,?,?,?,?)');
     const insFu = db.prepare('INSERT INTO follow_up_note (profile_id,content,source_ref,recorded_at) VALUES (?,?,?,?)');
     const insSite = db.prepare('INSERT INTO visit_site (profile_id,name,department,contact_text,ord,updated_at) VALUES (?,?,?,?,?,?)');
+    const insQ = db.prepare('INSERT INTO question (profile_id,kind,content,created_at) VALUES (?,?,?,?)');
 
     for (const key of Object.keys(demo.profiles)) {
       const p = demo.profiles[key];
@@ -59,6 +60,9 @@ export function seedDemoData(db, { force = false } = {}) {
       if (p.followUp) insFu.run(p.id, p.followUp.text, p.followUp.source, new Date().toISOString());
       (p.sites || []).forEach(function (st, i) {
         insSite.run(p.id, st.name, st.department || null, st.contact || null, st.ord != null ? st.ord : i, new Date().toISOString());
+      });
+      (p.questions || []).forEach(function (qq) {
+        insQ.run(p.id, qq.kind, qq.content, qq.created || new Date().toISOString());
       });
     }
     db.exec('COMMIT');

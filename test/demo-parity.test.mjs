@@ -23,6 +23,7 @@ test('bootstrap 与原型 demo 形状一致（条数/私密标记/计划原话�
     if (!!a.plan !== !!e.plan) throw new Error(`${k} plan 有无不符`);
     if ((a.sites || []).length !== (e.sites || []).length) throw new Error(`${k} sites 数不符`);
     if (a.sites && a.sites[0] && a.sites[0].name !== e.sites[0].name) throw new Error(`${k} 首医院名不符`);
+    if ((a.questions || []).length !== (e.questions || []).length) throw new Error(`${k} questions 数不符`);
     const privE = e.labs.filter((x) => x.private).length;
     const privA = a.labs.filter((x) => x.private).length;
     if (privA !== privE) throw new Error(`${k} 私密标记数不符`);

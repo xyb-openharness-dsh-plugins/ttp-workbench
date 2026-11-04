@@ -785,8 +785,26 @@
           h('td', { class: 'nowrap-num' }, (e.endPrecision === 'day' && e.end) ? e.end : '未记录'),
           h('td', null, e.stateText), h('td', { class: 'nowrap-num' }, String(n)));
       }))));
-    root.appendChild(h('div', { class: 'notice', style: 'margin-top:10px' }, '如何记录：每次发作从医生记录里抄日期与原话；记不清的日期选「仅记到月」或「日期不详」。'));
+    root.appendChild(h('div', { style: 'margin-top:10px;display:flex;gap:10px;flex-wrap:wrap' },
+      h('button', { class: 'primary', 'data-action': 'add-episode' }, '+ 记录一次发作'),
+      h('span', { class: 'sub', style: 'align-self:center;font-size:12.5px;color:var(--soft-fg)' }, '从医生记录抄日期与原话；记不清选「仅记到月」')));
     root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('episode')));
+  }
+
+  function addEpisodeModal() {
+    var p = P();
+    inputModal('记录一次发作', [
+      { key: 'start', label: '开始日期', type: 'date', required: true },
+      { key: 'prec', label: '日期精度', type: 'select', options: [['day', '记到日'], ['month', '仅记到月']] },
+      { key: 'end', label: '结束日期（医生记录了才填）', type: 'date' },
+      { key: 'state', label: '医生原文状态', type: 'text', required: true, placeholder: '照抄医生原话，如：好转出院，继续随访' },
+      { key: 'admitted', label: '本次住院', type: 'checkbox' }
+    ], function (v) {
+      p.episodes.push({ id: state.profile + '-EP' + (p.episodes.length + 1) + '-' + Date.now() % 1000,
+        label: '第 ' + (p.episodes.length + 1) + ' 次发作', start: v.start, startPrecision: v.prec,
+        end: v.end || null, endPrecision: v.end ? 'day' : 'unknown',
+        stateText: v.state, admitted: v.admitted });
+    });
   }
 
   function pageLabsCat(root) {
@@ -832,7 +850,7 @@
       var lab = { id: state.profile + '-H' + (P().labs.length + 1), metric: metric, date: date || null, datePrecision: date ? 'day' : 'unknown', value: num, method: method, site: site, reportId: null, source: '手工录入', private: priv };
       P().labs.push(lab);
       render();
-      openModal('已录入', [h('p', null, '已写进事实层（新版本）。原始来源：手工录入。')]);
+      toast('已写入事实层（新版本），可继续录入下一条');
     });
     root.appendChild(form);
     root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('labs')));
@@ -894,8 +912,30 @@
       body.appendChild(h('div', { class: 'sub', style: 'font-size:12.5px;color:var(--soft-fg);margin-top:6px' }, '置换量按医嘱原文范围 ' + (sess.length ? Math.min.apply(null, sess.map(function (s) { return s.volumeMl; })) + '–' + Math.max.apply(null, sess.map(function (s) { return s.volumeMl; })) : '—') + ' ml/次记录'));
       root.appendChild(fold([h('strong', null, e.label + ' · ' + sess.length + ' 次'), h('span', { class: 'pill' }, e.start)], [body], state.profile === 'A'));
     });
+    root.appendChild(h('div', { style: 'margin-top:10px' },
+      h('button', { class: 'primary', 'data-action': 'add-pe' }, '+ 记录一次置换'),
+      h('span', { class: 'sub', style: 'margin-left:10px;align-self:center;font-size:12.5px;color:var(--soft-fg)' }, '支持连续录入：一个疗程可以一口气记完')));
     root.appendChild(h('div', { class: 'notice', style: 'margin-top:10px' }, '每次置换都可以加一行自己的体感备注，可标为私密（仅本机可见，导出与 AI 都不含）。'));
     root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('pe')));
+  }
+
+  function addPeModal() {
+    var p = P();
+    if (!p.episodes.length) { toast('先在「发作与缓解」记录一次发作'); return; }
+    inputModal('记录一次置换', [
+      { key: 'ep', label: '属于哪次发作', type: 'select', options: p.episodes.map(function (e) { return [e.id, e.label]; }), required: true },
+      { key: 'date', label: '日期', type: 'date', required: true },
+      { key: 'vol', label: '置换量（ml，医嘱单为准）', type: 'number', required: true, inputmode: 'numeric' },
+      { key: 'access', label: '通路（左臂/右颈内…）', type: 'text' },
+      { key: 'dur', label: '记录时长（分钟）', type: 'number', inputmode: 'numeric' },
+      { key: 'note', label: '体感备注（私密，仅本机）', type: 'text' }
+    ], function (v) {
+      var epId = v.ep;
+      var seq = p.pe.filter(function (x) { return x.episode === epId; }).length + 1;
+      p.pe.push({ id: state.profile + '-P' + (p.pe.length + 1) + '-' + Date.now() % 1000, episode: epId, seq: seq,
+        date: v.date, datePrecision: 'day', volumeMl: Number(v.vol), access: v.access || '', durationMin: Number(v.dur || 0),
+        note: v.note || '', private: false });
+    });
   }
 
   function pagePeSession(root) {
@@ -918,8 +958,27 @@
           h('td', null, m.status));
       })));
     root.appendChild(h('div', { class: 'card' }, body));
+    root.appendChild(h('div', { style: 'margin-top:10px' },
+      h('button', { class: 'primary', 'data-action': 'add-med' }, '+ 记录一次用药 / 调药')));
     root.appendChild(h('div', { class: 'notice', style: 'margin-top:10px' }, '剂量没抄的部分就写「未抄录」，不要凭记忆补——这是整理原则，不是偷懒。'));
     root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('tx')));
+  }
+
+  function addMedModal() {
+    var p = P();
+    var epOpts = [['', '（不挂在某次发作下）']].concat(p.episodes.map(function (e) { return [e.id, e.label]; }));
+    inputModal('记录一次用药 / 调药', [
+      { key: 'name', label: '药名', type: 'text', required: true },
+      { key: 'dose', label: '医嘱原文', type: 'text', required: true, placeholder: '照抄医嘱；没抄的写「未抄录」' },
+      { key: 'start', label: '开始日期', type: 'date', required: true },
+      { key: 'end', label: '结束日期（还在用就不填）', type: 'date' },
+      { key: 'status', label: '状态', type: 'select', options: [['进行中', '进行中'], ['已结束', '已结束']] },
+      { key: 'ep', label: '属于哪次发作', type: 'select', options: epOpts }
+    ], function (v) {
+      p.meds.push({ id: state.profile + '-M' + (p.meds.length + 1) + '-' + Date.now() % 1000, episode: v.ep || null,
+        name: v.name, doseText: v.dose, start: v.start, startPrecision: 'day',
+        end: v.end || null, endPrecision: v.end ? 'day' : 'unknown', prescriber: '', status: v.status });
+    });
   }
 
   function pageTxEpisodes(root) {
@@ -956,6 +1015,16 @@
     });
     var q = h('textarea', { style: 'width:100%;min-height:64px;margin-top:8px;border:1px solid var(--line);border-radius:10px;padding:8px;font:inherit', placeholder: '想问的问题，一行一条（不是医疗建议，只是提醒自己）', 'aria-label': '想问医生的问题' });
     box.appendChild(q);
+    box.appendChild(h('div', { style: 'margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap' },
+      h('button', { class: 'soft-btn', 'data-action': 'save-questions' }, '把上面每行存成一条问题'),
+      h('span', { class: 'sub', style: 'font-size:12.5px;color:var(--soft-fg)' }, '已存 ' + (p.questions || []).length + ' 条，可反复追加')));
+    var qlist = h('div', { class: 'card', style: 'margin-top:10px' });
+    if ((p.questions || []).length) {
+      qlist.appendChild(h('table', { class: 'data' },
+        p.questions.map(function (x) { return h('tr', null, h('td', null, x.content), h('td', { class: 'sub' }, x.created)); })));
+    } else qlist.appendChild(h('div', { class: 'sub' }, '还没有保存过问题。'));
+    root.appendChild(secTitle('已保存的问题', '逐条记录，可多次追加'));
+    root.appendChild(qlist);
     root.appendChild(box);
     root.appendChild(h('div', { style: 'margin-top:10px;display:flex;gap:8px;flex-wrap:wrap' },
       h('button', { class: 'primary', 'data-action': 'preview-export' }, '生成一页预览'),
@@ -1016,6 +1085,55 @@
         h('button', { 'data-action': 'go', 'data-view': 'review/review-prep' }, '把这句话加进复诊要问的清单')));
     }
     root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('urgent')));
+  }
+
+  /* 通用录入窗口：字段 ≤6（IP6），「保存并继续」支持连续多条录入（多记录）；
+     每条写入事实层 = 新记录/新版本（IP8）。 */
+  function inputModal(title, fields, onSave, opts) {
+    opts = opts || {};
+    var form = h('form', { class: 'card', style: 'box-shadow:none', onsubmit: function (ev) { ev.preventDefault(); } });
+    fields.forEach(function (f) {
+      var input;
+      if (f.type === 'select') {
+        input = h('select', { 'data-f': f.key, 'aria-label': f.label }, (f.options || []).map(function (o) { return h('option', { value: o[0] }, o[1]); }));
+      } else if (f.type === 'textarea') {
+        input = h('textarea', { 'data-f': f.key, 'aria-label': f.label, placeholder: f.placeholder || '', style: 'min-height:56px' });
+      } else if (f.type === 'checkbox') {
+        input = h('input', { type: 'checkbox', 'data-f': f.key, 'aria-label': f.label });
+      } else {
+        input = h('input', { type: f.type || 'text', 'data-f': f.key, 'aria-label': f.label, inputmode: f.inputmode || (f.type === 'number' ? 'decimal' : undefined), pattern: f.pattern, required: f.required ? true : undefined, placeholder: f.placeholder || '' });
+      }
+      form.appendChild(h('label', null, f.label + (f.required ? ' *' : '') + '：', input));
+    });
+    var foot = h('div', { class: 'form-actions' },
+      h('button', { class: 'primary', type: 'button', 'data-action': 'save-continue' }, '保存并继续录入'),
+      h('button', { class: 'soft-btn', type: 'button', 'data-action': 'save-close' }, '保存并关闭'),
+      h('button', { type: 'button', class: 'text-button', 'data-action': 'modal-close' }, '取消'));
+    form.appendChild(foot);
+    function collect() {
+      var v = {};
+      fields.forEach(function (f) {
+        var el = form.querySelector('[data-f=' + f.key + ']');
+        if (f.type === 'checkbox') v[f.key] = el.checked;
+        else v[f.key] = el.value.trim();
+      });
+      for (var i = 0; i < fields.length; i++) {
+        if (fields[i].required && !v[fields[i].key]) { toast(fields[i].label + '必填'); return null; }
+      }
+      return v;
+    }
+    function save(again) {
+      var v = collect();
+      if (!v) return;
+      try { onSave(v); } catch (e) { openModal('保存出错', [h('p', null, String(e && e.message || e))]); return; }
+      if (again) {
+        fields.forEach(function (f) { var el = form.querySelector('[data-f=' + f.key + ']'); if (f.type !== 'checkbox' && f.keep) return; if (f.type === 'checkbox') el.checked = false; else el.value = ''; });
+        toast('已保存，可继续录入下一条');
+      } else { closeModal(); render(); }
+    }
+    foot.querySelector('[data-action=save-continue]').addEventListener('click', function () { save(true); });
+    foot.querySelector('[data-action=save-close]').addEventListener('click', function () { save(false); });
+    openModal(title, [form]);
   }
 
   function pageUrgentInfo(root) {
@@ -1088,8 +1206,22 @@
     } else {
       root.appendChild(h('div', { class: 'empty' }, h('div', { class: 'empty-title' }, '还没有记录'), h('div', null, '今天感觉怎么样？一句话也行。')));
     }
+    root.appendChild(h('div', { style: 'margin-top:10px' },
+      h('button', { class: 'primary', 'data-action': 'add-note' }, '+ 记一条感受')));
     root.appendChild(h('div', { class: 'notice', style: 'margin-top:10px' }, '这些记录只帮你回看自己的状态；情绪支持请找专业渠道（如病友组织或心理门诊）。'));
     root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('mind')));
+  }
+
+  function addNoteModal() {
+    var p = P();
+    inputModal('记一条感受', [
+      { key: 'date', label: '日期', type: 'date', required: true },
+      { key: 'text', label: '感受', type: 'textarea', required: true, placeholder: '一句话也行' },
+      { key: 'priv', label: '仅自己可见（私密）', type: 'checkbox' }
+    ], function (v) {
+      p.notes = p.notes || [];
+      p.notes.push({ id: state.profile + '-N' + (p.notes.length + 1) + '-' + Date.now() % 1000, date: v.date, text: v.text, private: v.priv });
+    });
   }
 
   function pageMindBurden(root) {
@@ -1123,7 +1255,24 @@
       })));
     root.appendChild(tw);
     root.appendChild(h('div', { class: 'scroll-hint' }, '← 左右滑动查看 →'));
+    root.appendChild(h('div', { style: 'margin-top:10px' },
+      h('button', { class: 'primary', 'data-action': 'add-doc' }, '+ 登记一份资料'),
+      h('span', { class: 'sub', style: 'margin-left:10px;align-self:center;font-size:12.5px;color:var(--soft-fg)' }, '出院小结 / 化验单 / 门诊病历都能登记')));
     root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('docs')));
+  }
+
+  function addDocModal() {
+    var p = P();
+    inputModal('登记一份资料', [
+      { key: 'name', label: '名称', type: 'text', required: true, placeholder: '如：出院小结 · 2026-09' },
+      { key: 'date', label: '日期', type: 'date' },
+      { key: 'kind', label: '类型', type: 'select', options: [['PDF', 'PDF'], ['照片', '照片'], ['其他', '其他']] },
+      { key: 'orig', label: '原件已存档', type: 'checkbox' }
+    ], function (v) {
+      p.docs.push({ id: state.profile + '-D' + (p.docs.length + 1) + '-' + Date.now() % 1000, name: v.name,
+        date: v.date || null, kind: v.kind, hasOriginal: v.orig,
+        status: v.orig ? '待核对' : '未取得原件，据二次来源' });
+    });
   }
 
   function pageDocsImport(root) {
@@ -1279,6 +1428,24 @@
     else if (act === 'mineru-show') { state.cfg.showToken = !state.cfg.showToken; openSettings(); }
     else if (act === 'mineru-guide') { var g = document.getElementById('mineru-guide'); if (g) g.hidden = !g.hidden; }
     else if (act === 'site-edit') { siteEditModal(t.getAttribute('data-site') || null); }
+    else if (act === 'add-episode') { addEpisodeModal(); }
+    else if (act === 'add-pe') { addPeModal(); }
+    else if (act === 'add-med') { addMedModal(); }
+    else if (act === 'add-note') { addNoteModal(); }
+    else if (act === 'add-doc') { addDocModal(); }
+    else if (act === 'save-questions') {
+      var ta = document.querySelector('textarea[aria-label="想问医生的问题"]');
+      if (!ta) return;
+      var lines = ta.value.split('\n').map(function (x) { return x.trim(); }).filter(function (x) { return x; });
+      if (!lines.length) { toast('先写至少一行问题'); return; }
+      var p = P();
+      p.questions = p.questions || [];
+      var today = DEMO_NOW;
+      lines.forEach(function (l) { p.questions.push({ id: state.profile + '-Q' + (p.questions.length + 1) + '-' + Date.now() % 1000, kind: 'view', content: l, created: today }); });
+      ta.value = '';
+      toast('已保存 ' + lines.length + ' 条问题');
+      render();
+    }
     else if (act === 'demo-toast') { toast('原型演示：此操作在正式版接入'); }
     else if (act === 'toggle-pe') { state.showPE = !state.showPE; render(); }
     else if (act === 'flip') {

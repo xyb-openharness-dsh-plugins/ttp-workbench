@@ -121,7 +121,7 @@ const mine = segment.filter((l) => OURS.test(l) || /did not activate|plugin-reco
 const attributed = segment.filter((l) => /\(@[^)]+\):\s*(?:failed|Error)/.test(l) || /\b[a-z0-9-]+-main:\s*(?:Error|failed)/i.test(l))
 const oursFailures = attributed.filter((l) => OURS.test(l))
 const otherFailures = attributed.filter((l) => !OURS.test(l))
-const genericFailures = segment.filter((l) => /\d+ entries? did not activate/.test(l))
+const genericFailures = segment.filter((l) => /\b\d+\s+entr(?:y|ies)\s+did not activate/.test(l))
 push('本次段相关日志', mine.length ? `${mine.length} 条` : '无', oursFailures.length === 0)
 if (otherFailures.length) {
   const ids = [...new Set(otherFailures.map((l) => (l.match(/\((@[^)]+)\):\s*failed/) || l.match(/\(([^)]+)\):\s*Error/) || l.match(/(?:error |\] )([a-z0-9-]+-main):/) || [null, '未知'])[1]))]
@@ -163,9 +163,9 @@ if (oursFailures.length) {
   process.exit(1)
 }
 if (genericFailures.length && !attributed.length) {
-  console.log('! 注意：本次运行有「N entries did not activate」，但日志没有逐条归属行，无法证明与本包无关。')
-  console.log('  按「待人工」处理：回看完整日志或重启后再跑本脚本；不要写成通过。')
-  process.exit(3)
+  console.log('✗ 结论：本次运行有「N entries did not activate」，但日志没有逐条归属行，无法证明与本包无关。')
+  console.log('  按失败处理（保守）；回看完整日志或重启后再跑本脚本，不要写成通过。')
+  process.exit(1)
 }
 if (siblings.length === 0) {
   console.log(`✗ 结论：装错了 profile —— ${PROFILE} 里一个兄弟工作台都没有，`)

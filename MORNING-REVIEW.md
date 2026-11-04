@@ -34,3 +34,14 @@ docs/signoffs/：G1（业务流程/交互路径）· G2（原型）· G3（数�
 - 0 患者访谈、0 临床审核：全部场景为假设，全部阈值为待核占位
 - config.root 服务端声明：装机后已实测（数据目录 ttp-workbench.sqlite 生成）✓
 - 同 profile 四仓（esophageal/gastric/gist/colorectal）激活失败为存量问题，与本仓无关，已回流 LESSONS L53
+
+
+---
+
+## 2026-11-05 追更（Inspector 修复轮 + M6–M9 复推，v0.2.8）
+
+- **一句话**：按 FAMILY-INSPECTOR 九组清单审查（33 通过 / 16 失败），全部修复；0.2.8 已装 Desktop profile、生产库迁移至 0004；M7/M8 冻结草稿更新；M9 回流 starter。
+- **本轮修复清单（用户可见）**：临床试验一级菜单（档案对照/检索/收藏与跟踪 + 右侧详情浮窗）；设置·临床数据库通道终态改为照 `source_statuses` 如实（chictr_online FAILED×6、ictrp SUCCESS×3+NO_RESULTS×3）；Token 掩码改 `****8f2c` 且草稿跨 tab 保留；化验录入改三态弹窗；episode/document 增 revision（迁移 0004）；一图秀数据点可键盘访问、图例补私密条数；置换单次详情页不再空壳；页脚补「不同方法/机构不合并」；README 重写、CHANGELOG 补 0.2.0–0.2.8；试验契约检查器进链（self-test 10/10）。
+- **数字**：check exit=0 · 单测 13/13 · family audit 33/33 · dsh-wb-cli audit 40/40 · probe 37/37 · primer 10/10 · 快照 193/193。
+- **未完成/待人工**：实机截图（IAB 超时）；0.2.8 重启后逐页复走查；NMPA 文号；0 访谈 0 临床审核。
+- **待追认**：全部自动签认；v0.2.8 发布与 BACKLOG PR（草稿就绪）；品牌占位名。

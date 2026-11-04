@@ -14,6 +14,7 @@
     { key: 'labs',    name: '化验与趋势' },
     { key: 'pe',      name: '血浆置换' },
     { key: 'tx',      name: '治疗与用药' },
+    { key: 'trials',  name: '临床试验' },
     { key: 'review',  name: '复诊准备' },
     { key: 'urgent',  name: '就医与紧急' },
     { key: 'mind',    name: '心理与照护' },
@@ -24,6 +25,7 @@
     labs:    [['labs-cat', '分类指标'], ['labs-trend', '一图秀'], ['labs-compare', '可比组']],
     pe:      [['pe-list', '置换记录'], ['pe-session', '单次详情']],
     tx:      [['tx-meds', '用药记录'], ['tx-episodes', '发作内治疗']],
+    trials:  [['trials-match', '档案对照'], ['trials-search', '检索'], ['trials-saved', '收藏与跟踪']],
     review:  [['review-prep', '就诊准备'], ['review-export', '导出与回顾']],
     urgent:  [['urgent-plan', '行动计划'], ['urgent-info', '就医信息']],
     mind:    [['mind-feel', '当下感受'], ['mind-burden', '家庭与照护']],
@@ -35,6 +37,7 @@
     'labs/labs-cat', 'labs/labs-trend', 'labs/labs-compare',
     'pe/pe-list', 'pe/pe-session',
     'tx/tx-meds', 'tx/tx-episodes',
+    'trials/trials-match', 'trials/trials-search', 'trials/trials-saved',
     'review/review-prep', 'review/review-export',
     'urgent/urgent-plan', 'urgent/urgent-info',
     'mind/mind-feel', 'mind/mind-burden',
@@ -50,7 +53,8 @@
     flipped: {},            // mcard key -> true
     sel: ['plt', 'ldh'],
     settingsTab: 'store',
-    cfg: { consent: false, showToken: false, tokenMasked: 'sk-8f2c****' },
+    trialQuery: '', trialSource: 'all', trialSaved: {}, currentTrial: null,
+    cfg: { consent: false, showToken: false, tokenMasked: '****8f2c' },
     candidates: { labs: [] }, // AI/导入候选，核对前不入图
     checks: {},             // 已核对候选 id
     pvStack: [],            // 整页视图栈（唯一真源是 history，栈只存 UI 上下文）
@@ -123,6 +127,7 @@
     labs: '<path d="M4 19V5M4 19h16"/><path d="M8 15l3-4 3 2 4-6"/>',
     pe: '<path d="M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z"/>',
     tx: '<rect x="4" y="8" width="16" height="8" rx="4"/><path d="M12 8v8"/>',
+    trials: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/>',
     review: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M9 10h6M9 14h4"/>',
     urgent: '<path d="M12 3l10 18H2L12 3z"/><path d="M12 9v5M12 17h.01"/>',
     mind: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 5.5-7 10-7 10z"/>',
@@ -366,8 +371,9 @@
           svg.appendChild(path);
         }
         pts.forEach(function (pt) {
-          var c = svgEl('circle', { class: 'dot dot-' + b.cls, cx: pt[0], cy: pt[1], 'data-report': pt[2].reportId || '', 'data-lab-id': pt[2].id, 'data-month': pt[2].datePrecision === 'month' ? '1' : '' });
-          c.addEventListener('click', function (ev) { ev.stopPropagation(); openLabSource(pt[2]); });
+          var c = svgEl('circle', { class: 'dot dot-' + b.cls, cx: pt[0], cy: pt[1], tabindex: '0', role: 'button', 'aria-label': b.m.name + ' ' + pt[2].value + ' ' + b.m.unit + '（' + (pt[2].date || '日期不详') + '），打开原始来源', 'data-report': pt[2].reportId || '', 'data-lab-id': pt[2].id, 'data-month': pt[2].datePrecision === 'month' ? '1' : '' });
+          c.addEventListener('click', function (ev) { ev.stopPropagation(); try { c.focus(); } catch (e) { } openLabSource(pt[2]); });
+          c.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openLabSource(pt[2]); } });
           svg.appendChild(c);
           totalPoints++;
         });
@@ -395,7 +401,8 @@
       h('span', null, '虚线带 = 发作区间（医生记录）'),
       h('span', null, '每条线按该指标全期范围缩放，纵向不可比'),
       h('span', null, '点数据点看原始报告'),
-      h('span', null, '日期不详的记录：' + DEMO.filterPublic(p.labs).filter(function (l) { return l.datePrecision === 'unknown'; }).length + ' 条（见分类指标页）')
+      h('span', null, '日期不详的记录：' + DEMO.filterPublic(p.labs).filter(function (l) { return l.datePrecision === 'unknown'; }).length + ' 条（见分类指标页）'),
+      h('span', null, '私密 ' + DEMO.privateCount(p.labs) + ' 条不含')
     ));
     panel.setAttribute('data-points', String(totalPoints));
     panel.setAttribute('data-paths-visible', String(svg.querySelectorAll('path').length));
@@ -594,20 +601,21 @@
       body.appendChild(h('div', { class: 'notice', style: 'margin-top:12px' }, 'Flash 免费解析单文件上限 10 MB / 20 页，真实扫描病历常超过这个范围。超限时保留原件并提示换 Token 或稍后重试，不丢文件。认证失败自动尝试 Flash，成功时界面明确标注「Flash 降级解析」。'));
       body.appendChild(h('p', { class: 'small-note', style: 'margin-top:10px' }, '当前状态：未接入（本原型按 DEV-REQUIREMENTS §五 的可回退默认值关闭文档解析）；上面的界面是正式版形态预览，勾选与保存都不会真正联网。'));
     } else {
-      body.appendChild(h('div', { class: 'notice info' }, '临床数据库用于试验与登记信息的离线检索。本仓 M4 已构建离线快照；未接入或断网时，临床页给空态与获取说明，不报错、不假装有结果。'));
+      body.appendChild(h('div', { class: 'notice info' }, '临床试验页与这里读同一份本地快照；未接入或断网时给空态与说明，不报错、不假装有结果。'));
       body.appendChild(h('div', { class: 'set-row' },
-        h('div', null, h('b', null, '状态：离线快照已构建'), h('p', { class: 'small-note' }, '2026-11-04 · 193 条（同登记号合并）· manifest/jsonl/sqlite 三方计数一致')),
+        h('div', null, h('b', null, '状态：离线快照已构建'), h('p', { class: 'small-note' }, '2026-11-04 · 193 条（同登记号合并）· manifest = jsonl = sqlite 三方计数一致；临床页取其中标题相关的 75 条')),
         h('span', { class: 'pill', style: 'background:var(--ok-weak);color:var(--ok)' }, '已构建')));
       body.appendChild(h('div', { class: 'set-row' },
-        h('div', null, h('b', null, '数据来源'), h('p', { class: 'small-note' }, 'CDE 药物临床试验 14 / CTV 4 / ICTRP 175；每条保留来源与检索日期，登记状态一律「未核实」')),
+        h('div', null, h('b', null, '来源计数（trials 表）'), h('p', { class: 'small-note' }, 'chinadrugtrials 14 · CTV 4 · ICTRP 175；每条保留来源与检索日期，登记状态一律「未核实」')),
         h('span', { class: 'pill' }, '快照')));
       body.appendChild(h('div', { class: 'set-row' },
-        h('div', null, h('b', null, '通道终态（如实记录）'), h('p', { class: 'small-note' }, 'chictr_online 全程 FAILED、ictrp 两次 FAILED——查过但服务失败，不是零结果；ChiCTR 归档语料仅胰腺癌覆盖，未配置')),
+        h('div', null, h('b', null, '通道终态（照 source_statuses 表，6 组查询）'),
+          h('p', { class: 'small-note' }, 'chictr_online：FAILED ×6（查过但服务失败，非零结果）· ictrp：SUCCESS ×3 + NO_RESULTS ×3 · chinadrugtrials：SUCCESS ×2 + NO_RESULTS ×4 · ctv：SUCCESS ×2 + NO_RESULTS ×4 · ChiCTR 归档语料：NEEDS_SETUP ×6（仅胰腺癌覆盖）· CDE 归档：NO_RESULTS ×6')),
         h('span', { class: 'pill', style: 'background:var(--warn-weak);color:var(--warn)' }, '部分失败')));
       body.appendChild(h('div', { class: 'set-row' },
-        h('div', null, h('b', null, '离线可用'), h('p', { class: 'small-note' }, '未接入或断网时给空态与获取说明')),
-        h('span', { class: 'pill', style: 'background:var(--ok-weak);color:var(--ok)' }, '设计约束')));
-      body.appendChild(h('p', { class: 'small-note', style: 'margin-top:12px' }, '原型没有真实数据库 UI；「导入离线库 / 检查更新」在正式版接入 research/ttp 快照。'));
+        h('div', null, h('b', null, '临床页入口'), h('p', { class: 'small-note' }, '「临床试验」一级菜单：档案对照 / 检索 / 收藏与跟踪（35 号三子页）')),
+        h('button', { class: 'soft-btn', 'data-action': 'go', 'data-view': 'trials/trials-search' }, '打开检索 →')));
+      body.appendChild(h('p', { class: 'small-note', style: 'margin-top:12px' }, '「导入离线库 / 检查更新」在正式版接入 research/ttp 快照；原型只读演示数据。'));
       body.appendChild(h('div', { style: 'display:flex;gap:8px;margin-top:8px' },
         h('button', { class: 'soft-btn', 'data-action': 'demo-toast' }, '导入离线库'),
         h('button', { class: 'text-button', 'data-action': 'demo-toast' }, '检查更新')));
@@ -638,7 +646,7 @@
         ? h('div', { class: 'hero-state' }, '缓解期第 ' + c.dayN + ' 天')
         : h('div', { class: 'hero-state', style: 'color:var(--danger)' }, '发作中第 ' + c.dayN + ' 天'),
       h('div', { class: 'hero-sub' }, (c.mode === 'remission' ? '距上次发作（医生记录的结束日）' + c.sinceFlare + ' 天 · ' : '医生记录的开始日 ' + c.last.start + ' · ') + '近 90 天发作 ' + flares90(p) + ' 次'),
-      h('div', { class: 'hero-sub', style: 'font-size:12.5px;color:var(--soft-fg)' }, '状态文字（医生原文）：' + c.last.stateText),
+      h('div', { class: 'hero-sub', style: 'font-size:12.5px;color:var(--soft-fg)' }, '状态文字（医生原文）：' + String(c.last.stateText || '').replace(/^医生原文[：:]\s*/, '')),
       h('div', { class: 'hero-actions' },
         h('button', { class: 'primary', 'data-action': 'go', 'data-view': 'episode/ep-timeline' }, '看发作时间线 →'),
         h('button', { class: 'soft-btn', 'data-action': 'primer' }, '疾病概要：TTP 是什么？')));
@@ -706,6 +714,152 @@
       h('span', { class: 'q-ic', html: navIcon(iconKey) }),
       h('span', { class: 'q-text' }, h('b', null, title), h('span', null, note)),
       h('span', { class: 'q-arrow', 'aria-hidden': 'true' }, '↗'));
+  }
+
+  /* ── 临床试验：档案对照 / 检索 / 收藏与跟踪（35 号三子页；非肿瘤不排名） ── */
+  function trialsData() { return window.TTP_TRIALS || { records: [], snapshotDate: '未标注', source: '未配置' }; }
+
+  function pageTrialsMatch(root) {
+    var p = P();
+    root.appendChild(pageHead('临床试验', '档案对照', '本地快照只存登记的结构化字段；本台不做排名、不给百分数（35 号落地五条）'));
+    var conf = p.episodes.length ? '医生病历原文' : '未记录';
+    root.appendChild(secTitle('本台档案字段', '只有「已确认」字段才可能参与对照'));
+    root.appendChild(h('div', { class: 'card' },
+      h('table', { class: 'data' },
+        h('tr', null, h('th', null, '字段'), h('th', null, '本地记录'), h('th', null, '能否参与对照')),
+        h('tr', null, h('td', null, '病种'), h('td', null, 'TTP（' + conf + '）'), h('td', null, '不参与：登记不按病种字段筛选')),
+        h('tr', null, h('td', null, '发作次数'), h('td', null, String(p.episodes.length) + ' 次'), h('td', null, '不参与：登记无此字段')),
+        h('tr', null, h('td', null, '病理 / 基因 / 分期'), h('td', null, '本台不收集（非肿瘤）'), h('td', null, '不参与')),
+        h('tr', null, h('td', null, 'ADAMTS13 活性'), h('td', null, (p.labs.some(function (l) { return l.metric === 'adamts13'; }) ? '有记录' : '未记录')), h('td', null, '待确认（需核对登记入排原文）')))));
+    root.appendChild(h('div', { class: 'action-strip', style: 'margin-top:14px' },
+      h('div', { class: 'as-main' },
+        h('div', { class: 'as-title' }, '不排名：可对照字段不足 2 条'),
+        h('div', { class: 'as-text' }, '按 35 号纪律，可对照项不足 2 条时不给百分数；病理未确认也不排名。本台没有病理/基因结构化字段，所以这一页只做字段对照说明，不做匹配卡。')),
+      h('div', { class: 'as-actions' },
+        h('button', { class: 'primary', 'data-action': 'go', 'data-view': 'trials/trials-search' }, '去检索登记 →'))));
+    root.appendChild(h('div', { class: 'notice info', style: 'margin-top:10px' }, '要判断某个登记能不能参加，请把登记号与入排原文拿给你的医生和研究中心确认；本工作台不写入组结论。'));
+    root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('trials')));
+  }
+
+  function trialSources(records) {
+    var src = {};
+    records.forEach(function (r) { var k = (r.id.split(':')[0] || '其他'); src[k] = (src[k] || 0) + 1; });
+    return Object.keys(src).sort().map(function (k) { return [k, src[k]]; });
+  }
+
+  function trialCard(r) {
+    var saved = state.trialSaved[r.id];
+    return h('div', { class: 'card', style: 'margin-bottom:10px' },
+      h('div', { style: 'display:flex;gap:10px;align-items:baseline;flex-wrap:wrap' },
+        h('b', { style: 'font-size:14.5px' }, r.title || '（无标题）'),
+        h('span', { class: 'pill', style: 'margin-left:auto' }, r.id)),
+      h('div', { class: 'sub', style: 'font-size:12.5px;color:var(--soft-fg);margin-top:4px' },
+        (r.sponsor ? r.sponsor + ' · ' : '') + '登记状态，未核实 · 快照 ' + r.snapshotDate),
+      h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:8px' },
+        h('button', { class: 'soft-btn', 'data-action': 'trial-open', 'data-trial': r.id }, '详情'),
+        h('button', { class: 'text-button', 'data-action': 'trial-save', 'data-trial': r.id, 'aria-pressed': String(!!saved) }, saved ? '已收藏 · ' + saved.state : '收藏'),
+        r.url ? h('a', { class: 'text-button', href: r.url, target: '_blank', rel: 'noreferrer', style: 'text-decoration:none' }, '官方登记页 ↗') : null));
+  }
+
+  function pageTrialsSearch(root) {
+    var d = trialsData();
+    root.appendChild(pageHead('临床试验', '检索', '按关键词或登记号找线索；结果按你的条件排，不掺分数'));
+    var srcs = trialSources(d.records);
+    var chipRow = h('div', { class: 'chips', style: 'margin-bottom:10px' },
+      h('button', { class: 'chip', 'data-action': 'trial-src', 'data-src': 'all', 'aria-pressed': String(state.trialSource === 'all') }, '全部 · ' + d.records.length),
+      srcs.map(function (x) { return h('button', { class: 'chip', 'data-action': 'trial-src', 'data-src': x[0], 'aria-pressed': String(state.trialSource === x[0]) }, x[0] + ' · ' + x[1]); }));
+    root.appendChild(chipRow);
+    var input = h('input', { type: 'search', 'data-action': 'trial-q', 'aria-label': '搜索登记或标题', placeholder: '输入药名 / 登记号 / 关键词', value: state.trialQuery, style: 'width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit' });
+    root.appendChild(input);
+    var q = state.trialQuery.toLowerCase();
+    var rows = d.records.filter(function (r) {
+      if (state.trialSource !== 'all' && (r.id.split(':')[0] || '') !== state.trialSource) return false;
+      if (!q) return true;
+      return (r.title || '').toLowerCase().indexOf(q) >= 0 || (r.id || '').toLowerCase().indexOf(q) >= 0 || (r.registry || '').toLowerCase().indexOf(q) >= 0;
+    });
+    root.appendChild(h('div', { class: 'sub', style: 'font-size:12.5px;color:var(--soft-fg);margin:8px 0 10px' },
+      '本地快照 ' + d.records.length + ' 条（全部载入，非全库扫描）· 快照 ' + d.snapshotDate + ' · ' + d.note));
+    if (!rows.length) {
+      root.appendChild(h('div', { class: 'empty' },
+        h('div', { class: 'empty-title' }, '没有匹配的登记'),
+        h('div', null, '换个关键词，或点「全部」看全部 ' + d.records.length + ' 条线索。')));
+    } else {
+      rows.slice(0, 40).forEach(function (r) { root.appendChild(trialCard(r)); });
+      if (rows.length > 40) root.appendChild(h('div', { class: 'sub' }, '仅显示前 40 条（共 ' + rows.length + ' 条命中）；请细化关键词。'));
+    }
+    root.appendChild(h('div', { class: 'notice info', style: 'margin-top:10px' }, '登记状态 ≠ 有效 ≠ 安全 ≠ 可入组；入排标准请到官方登记页核对，是否参加请与你的医生和研究中心确认。'));
+    root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('trials')));
+  }
+
+  function pageTrialsSaved(root) {
+    var ids = Object.keys(state.trialSaved);
+    root.appendChild(pageHead('临床试验', '收藏与跟踪', '只存在本机；三态为手工标记，没有登记状态变化时间线'));
+    if (!ids.length) {
+      root.appendChild(h('div', { class: 'empty' },
+        h('div', { class: 'empty-title' }, '还没有收藏的登记'),
+        h('div', null, '在「检索」页把想留的登记收藏进来。'),
+        h('button', { 'data-action': 'go', 'data-view': 'trials/trials-search' }, '去检索')));
+    } else {
+      var d = trialsData();
+      ids.forEach(function (id) {
+        var r = d.records.filter(function (x) { return x.id === id; })[0];
+        var st = state.trialSaved[id];
+        root.appendChild(h('div', { class: 'card', style: 'margin-bottom:10px' },
+          h('div', { style: 'display:flex;gap:10px;align-items:baseline;flex-wrap:wrap' },
+            h('b', null, r ? r.title : id), h('span', { class: 'pill', style: 'margin-left:auto' }, id)),
+          h('div', { class: 'sub', style: 'font-size:12.5px;color:var(--soft-fg)' }, '收藏于 ' + st.savedOn + ' · 当前：' + st.state),
+          h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:8px' },
+            h('button', { class: 'soft-btn', 'data-action': 'trial-open', 'data-trial': id }, '详情'),
+            h('button', { class: 'chip', 'data-action': 'trial-state', 'data-trial': id, 'data-state': '在跟', 'aria-pressed': String(st.state === '在跟') }, '在跟'),
+            h('button', { class: 'chip', 'data-action': 'trial-state', 'data-trial': id, 'data-state': '准备问', 'aria-pressed': String(st.state === '准备问') }, '准备问'),
+            h('button', { class: 'chip', 'data-action': 'trial-state', 'data-trial': id, 'data-state': '已归档', 'aria-pressed': String(st.state === '已归档') }, '已归档'),
+            h('button', { class: 'text-button', 'data-action': 'trial-unsave', 'data-trial': id }, '移出收藏'))));
+      });
+    }
+    root.appendChild(h('div', { class: 'notice', style: 'margin-top:10px' }, '快照没有登记状态变更历史，所以这里不画进度条；想知道招募状态请到官方登记页。'));
+    root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('trials')));
+  }
+
+  /* 右侧浮窗（35 号 §六：三关闭口、焦点回触发卡、不改 hash） */
+  function openTrialDrawer(id) {
+    var d = trialsData();
+    var r = d.records.filter(function (x) { return x.id === id; })[0];
+    if (!r) return;
+    state.currentTrial = id;
+    state.drawerReturnFocus = document.activeElement;
+    var back = h('div', { class: 'drawer-back' });
+    var panel = h('div', { class: 'side-drawer', role: 'dialog', 'aria-label': '登记详情：' + (r.title || id) });
+    var saved = state.trialSaved[id];
+    panel.appendChild(h('div', { class: 'drawer-head' },
+      h('strong', null, '登记详情'),
+      h('button', { class: 'text-button', 'data-action': 'trial-drawer-close', 'aria-label': '关闭登记详情' }, '✕')));
+    var body = h('div', { class: 'drawer-body' });
+    panel.appendChild(body);
+    body.appendChild(h('div', { class: 'notice info' }, '登记状态，未核实；这不是入组资格，也不代表效果。'));
+    body.appendChild(secTitle('登记', null));
+    body.appendChild(h('table', { class: 'data' },
+      h('tr', null, h('th', null, '标题'), h('td', null, r.title || '—')),
+      h('tr', null, h('th', null, '登记号'), h('td', { class: 'nowrap-num' }, r.registry || r.id)),
+      h('tr', null, h('th', null, '申办方'), h('td', null, r.sponsor || '快照未提供')),
+      h('tr', null, h('th', null, '快照日期'), h('td', null, r.snapshotDate)),
+      h('tr', null, h('th', null, '入排原文'), h('td', null, '本机快照只存登记的结构化字段，入排标准请到官方登记页核对'))));
+    body.appendChild(secTitle('判据逐条', '本台不做自动匹配'));
+    body.appendChild(h('div', { class: 'card' }, h('p', { class: 'sub', style: 'margin:0' }, '本台没有病理/基因/分期字段，按 35 号纪律不生成 ✓/✕ 判定与百分数；请到官方登记页核对入排原文。')));
+    body.appendChild(secTitle('操作', null));
+    body.appendChild(h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' },
+      h('button', { class: 'primary', 'data-action': 'trial-save', 'data-trial': id }, saved ? '取消收藏' : '收藏这条'),
+      r.url ? h('a', { class: 'soft-btn', href: r.url, target: '_blank', rel: 'noreferrer', style: 'text-decoration:none;display:inline-flex;align-items:center' }, '打开官方登记页 ↗') : null));
+    back.appendChild(panel);
+    document.body.appendChild(back);
+    panel.querySelector('[data-action="trial-drawer-close"]').focus();
+    back.addEventListener('click', function (ev) { if (ev.target === back) closeTrialDrawer(); });
+    state._drawerEl = back;
+  }
+  function closeTrialDrawer() {
+    if (state._drawerEl) { state._drawerEl.remove(); state._drawerEl = null; }
+    state.currentTrial = null;
+    if (state.drawerReturnFocus) { try { state.drawerReturnFocus.focus(); } catch (e) { } }
+    render();
   }
 
   function pageEpTimeline(root) {
@@ -778,12 +932,13 @@
     var p = P();
     root.appendChild(pageHead('发作与缓解', '发作记录', '更正=新增版本，不覆盖历史（无裸删除）'));
     root.appendChild(h('div', { class: 'card' }, h('table', { class: 'data' },
-      h('tr', null, h('th', null, '发作'), h('th', null, '开始'), h('th', null, '结束'), h('th', null, '医生原文状态'), h('th', null, '置换次数')),
+      h('tr', null, h('th', null, '发作'), h('th', null, '开始'), h('th', null, '结束'), h('th', null, '医生原文状态'), h('th', null, '置换次数'), h('th', null, '版本')),
       p.episodes.map(function (e) {
         var n = p.pe.filter(function (s) { return s.episode === e.id; }).length;
         return h('tr', null, h('td', null, e.label), h('td', { class: 'nowrap-num' }, e.start),
           h('td', { class: 'nowrap-num' }, (e.endPrecision === 'day' && e.end) ? e.end : '未记录'),
-          h('td', null, e.stateText), h('td', { class: 'nowrap-num' }, String(n)));
+          h('td', null, e.stateText), h('td', { class: 'nowrap-num' }, String(n)),
+          h('td', { class: 'nowrap-num' }, 'v' + (e.revision || 1)));
       }))));
     root.appendChild(h('div', { style: 'margin-top:10px;display:flex;gap:10px;flex-wrap:wrap' },
       h('button', { class: 'primary', 'data-action': 'add-episode' }, '+ 记录一次发作'),
@@ -803,7 +958,7 @@
       p.episodes.push({ id: state.profile + '-EP' + (p.episodes.length + 1) + '-' + Date.now() % 1000,
         label: '第 ' + (p.episodes.length + 1) + ' 次发作', start: v.start, startPrecision: v.prec,
         end: v.end || null, endPrecision: v.end ? 'day' : 'unknown',
-        stateText: v.state, admitted: v.admitted });
+        stateText: v.state, admitted: v.admitted, revision: 1 });
     });
   }
 
@@ -826,33 +981,9 @@
       DEMO.metrics.filter(function (m) { return m.cat === cat; }).forEach(function (m) { g.appendChild(mcard(m)); });
       root.appendChild(g);
     });
-    root.appendChild(secTitle('手工录入', '一次最多 6 个字段（IP6）；数字用数字键盘'));
-    var form = h('form', { 'data-action': 'lab-form', class: 'card' },
-      h('label', null, '指标：', h('select', { 'data-f': 'metric' }, DEMO.metrics.map(function (m) { return h('option', { value: m.key }, m.name); }))),
-      h('label', null, '数值：', h('input', { 'data-f': 'value', inputmode: 'decimal', pattern: '[0-9.]*', required: true, 'aria-label': '化验数值（数字键盘）' })),
-      h('label', null, '日期：', h('input', { 'data-f': 'date', type: 'date', 'aria-label': '化验日期' })),
-      h('label', null, '机构：', h('input', { 'data-f': 'site', required: true, 'aria-label': '检查机构' })),
-      h('label', null, '方法（可选）：', h('input', { 'data-f': 'method', 'aria-label': '检测方法' })),
-      h('label', null, '私密：', h('input', { 'data-f': 'private', type: 'checkbox' })),
-      h('div', { style: 'margin-top:8px;display:flex;gap:8px' },
-        h('button', { class: 'primary', type: 'submit' }, '存为新版本'),
-        h('span', { class: 'sub', style: 'align-self:center' }, '提交后写进事实层，可在发作记录页追溯')));
-    form.addEventListener('submit', function (ev) {
-      ev.preventDefault();
-      var v = form.querySelector('[data-f=value]').value;
-      var num = Number(v);
-      if (!isFinite(num)) { openModal('数值有误', [h('p', null, '数值需要是数字，例如 120 或 4.5。')]); return; }
-      var metric = form.querySelector('[data-f=metric]').value;
-      var site = form.querySelector('[data-f=site]').value || '未登记机构';
-      var method = form.querySelector('[data-f=method]').value || '手工录入';
-      var date = form.querySelector('[data-f=date]').value;
-      var priv = form.querySelector('[data-f=private]').checked;
-      var lab = { id: state.profile + '-H' + (P().labs.length + 1), metric: metric, date: date || null, datePrecision: date ? 'day' : 'unknown', value: num, method: method, site: site, reportId: null, source: '手工录入', private: priv };
-      P().labs.push(lab);
-      render();
-      toast('已写入事实层（新版本），可继续录入下一条');
-    });
-    root.appendChild(form);
+    root.appendChild(h('div', { style: 'margin-top:10px' },
+      h('button', { class: 'primary', 'data-action': 'add-lab' }, '+ 录入一次化验'),
+      h('span', { class: 'sub', style: 'margin-left:10px;align-self:center;font-size:12.5px;color:var(--soft-fg)' }, '保存后可选「继续录入」，按报告单连录')));
     root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('labs')));
   }
 
@@ -939,10 +1070,23 @@
   }
 
   function pagePeSession(root) {
-    /* 直达路由兜底：正常从置换记录或图上节点打开整页视图 */
-    root.appendChild(pageHead('血浆置换', '单次详情', '请从置换记录或一图秀的置换节点进入'));
-    root.appendChild(h('div', { class: 'empty' }, h('div', { class: 'empty-title' }, '没有选中某一次置换'),
-      h('button', { 'data-action': 'go', 'data-view': 'pe/pe-list' }, '去置换记录挑一次')));
+    var p = P();
+    var pub = DEMO.filterPublic(p.pe);
+    root.appendChild(pageHead('血浆置换', '单次详情', '从下面挑一次置换，或用右侧「详情」打开整页视图'));
+    if (!pub.length) {
+      root.appendChild(h('div', { class: 'empty' }, h('div', { class: 'empty-title' }, '还没有置换记录'),
+        h('button', { 'data-action': 'go', 'data-view': 'pe/pe-list' }, '去置换记录')));
+      return;
+    }
+    var epName = {};
+    p.episodes.forEach(function (e) { epName[e.id] = e.label; });
+    pub.forEach(function (s) {
+      root.appendChild(h('div', { class: 'card', style: 'margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap' },
+        h('b', null, epName[s.episode] + ' · 第 ' + s.seq + ' 次'),
+        h('span', { class: 'sub', style: 'font-size:12.5px;color:var(--soft-fg)' }, s.date + ' · ' + s.volumeMl + ' ml · ' + s.durationMin + ' 分'),
+        h('button', { class: 'soft-btn', 'data-action': 'pv-open', 'data-pe': s.id }, '详情')));
+    });
+    root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('pe')));
   }
 
   function pageTxMeds(root) {
@@ -1054,7 +1198,7 @@
     var p = P(), c = coursePos(p);
     var labs = DEMO.filterPublic(p.labs), pe = DEMO.filterPublic(p.pe), notes = DEMO.filterPublic(p.notes), pubDocs = DEMO.filterPublic(p.docs);
     var text = '# 小宁宝 · 复诊摘要（合成示例）\n\n生成时间：' + DEMO_NOW + ' · 全部数据为演示数据，仅整理，不解读。\n\n'
-      + '## 病程位置\n' + (c.mode === 'remission' ? '缓解第 ' + c.dayN + ' 天，距上次发作 ' + c.sinceFlare + ' 天' : '发作中第 ' + c.dayN + ' 天') + '；近 90 天发作 ' + flares90(p) + ' 次。\n状态文字（医生原文）：' + c.last.stateText + '\n\n'
+      + '## 病程位置\n' + (c.mode === 'remission' ? '缓解第 ' + c.dayN + ' 天，距上次发作 ' + c.sinceFlare + ' 天' : '发作中第 ' + c.dayN + ' 天') + '；近 90 天发作 ' + flares90(p) + ' 次。\n状态文字（医生原文）：' + String(c.last.stateText || '').replace(/^医生原文[：:]\s*/, '') + '\n\n'
       + '## 化验（' + labs.length + ' 条，不含私密）\n' + labs.slice().sort(function (a, b) { return (b.date || '') < (a.date || '') ? -1 : 1; }).slice(0, 12).map(function (l) { var m = metricOf(l.metric); return '- ' + (l.date || '日期不详') + ' ' + m.name + ' ' + l.value + ' ' + m.unit + '（' + l.method + ' · ' + l.site + '）'; }).join('\n') + '\n\n'
       + '## 血浆置换（' + pe.length + ' 次）\n按发作：' + p.episodes.map(function (e) { return e.label + ' ' + pe.filter(function (s) { return s.episode === e.id; }).length + ' 次'; }).join('；') + '\n\n'
       + '## 用药（医嘱原文）\n' + p.meds.map(function (m) { return '- ' + m.name + '：' + m.doseText; }).join('\n') + '\n\n'
@@ -1134,6 +1278,12 @@
     foot.querySelector('[data-action=save-continue]').addEventListener('click', function () { save(true); });
     foot.querySelector('[data-action=save-close]').addEventListener('click', function () { save(false); });
     openModal(title, [form]);
+  }
+
+  function toggleTrialSaved(id) {
+    if (state.trialSaved[id]) { delete state.trialSaved[id]; toast('已取消收藏'); }
+    else { state.trialSaved[id] = { savedOn: DEMO_NOW, state: '在跟' }; toast('已收藏（本机）'); }
+    if (state._drawerEl) { closeTrialDrawer(); } else { render(); }
   }
 
   function pageUrgentInfo(root) {
@@ -1246,12 +1396,12 @@
     root.appendChild(pageHead('资料与导入', '资料库', '共 ' + p.docs.length + ' 份；原件未取得的如实标注'));
     var tw = h('div', { class: 'table-wrap' });
     tw.appendChild(h('table', { class: 'data' },
-      h('tr', null, h('th', null, '名称'), h('th', null, '日期'), h('th', null, '类型'), h('th', null, '原件'), h('th', null, '状态')),
+      h('tr', null, h('th', null, '名称'), h('th', null, '日期'), h('th', null, '类型'), h('th', null, '原件'), h('th', null, '状态'), h('th', null, '版本')),
       p.docs.map(function (d) {
         return h('tr', null, h('td', null, d.name), h('td', { class: 'nowrap-num' }, d.date || '日期不详'),
           h('td', null, d.kind),
           h('td', null, d.hasOriginal ? '已存档' : '未取得原件，据二次来源'),
-          h('td', null, d.status));
+          h('td', null, d.status), h('td', { class: 'nowrap-num' }, 'v' + (d.revision || 1)));
       })));
     root.appendChild(tw);
     root.appendChild(h('div', { class: 'scroll-hint' }, '← 左右滑动查看 →'));
@@ -1259,6 +1409,22 @@
       h('button', { class: 'primary', 'data-action': 'add-doc' }, '+ 登记一份资料'),
       h('span', { class: 'sub', style: 'margin-left:10px;align-self:center;font-size:12.5px;color:var(--soft-fg)' }, '出院小结 / 化验单 / 门诊病历都能登记')));
     root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('docs')));
+  }
+
+  function addLabModal() {
+    var p = P();
+    inputModal('录入一次化验', [
+      { key: 'metric', label: '指标', type: 'select', options: DEMO.metrics.map(function (m) { return [m.key, m.name + '（' + m.unit + '）']; }), required: true },
+      { key: 'value', label: '数值', type: 'number', required: true, inputmode: 'decimal' },
+      { key: 'date', label: '日期（记不清就不填）', type: 'date' },
+      { key: 'site', label: '机构', type: 'text', required: true, placeholder: '医院/检验所名称' },
+      { key: 'method', label: '方法（可选）', type: 'text' },
+      { key: 'priv', label: '仅自己可见（私密）', type: 'checkbox' }
+    ], function (v) {
+      p.labs.push({ id: state.profile + '-H' + (p.labs.length + 1) + '-' + Date.now() % 1000, metric: v.metric,
+        date: v.date || null, datePrecision: v.date ? 'day' : 'unknown', value: Number(v.value),
+        method: v.method || '手工录入', site: v.site, reportId: null, source: '手工录入', private: v.priv, revision: 1 });
+    });
   }
 
   function addDocModal() {
@@ -1271,7 +1437,7 @@
     ], function (v) {
       p.docs.push({ id: state.profile + '-D' + (p.docs.length + 1) + '-' + Date.now() % 1000, name: v.name,
         date: v.date || null, kind: v.kind, hasOriginal: v.orig,
-        status: v.orig ? '待核对' : '未取得原件，据二次来源' });
+        status: v.orig ? '待核对' : '未取得原件，据二次来源', revision: 1 });
     });
   }
 
@@ -1326,6 +1492,7 @@
     'labs/labs-cat': pageLabsCat, 'labs/labs-trend': pageLabsTrend, 'labs/labs-compare': pageLabsCompare,
     'pe/pe-list': pagePeList, 'pe/pe-session': pagePeSession,
     'tx/tx-meds': pageTxMeds, 'tx/tx-episodes': pageTxEpisodes,
+    'trials/trials-match': pageTrialsMatch, 'trials/trials-search': pageTrialsSearch, 'trials/trials-saved': pageTrialsSaved,
     'review/review-prep': pageReviewPrep, 'review/review-export': pageReviewExport,
     'urgent/urgent-plan': pageUrgentPlan, 'urgent/urgent-info': pageUrgentInfo,
     'mind/mind-feel': pageMindFeel, 'mind/mind-burden': pageMindBurden,
@@ -1381,7 +1548,9 @@
     render();
   }
   function toast(msg) {
-    var t = h('div', { class: 'notice ok', style: 'position:fixed;bottom:64px;left:50%;transform:translateX(-50%);z-index:60;' }, msg);
+    var old = document.getElementById('wb-toast');
+    if (old) old.remove();
+    var t = h('div', { class: 'notice ok', id: 'wb-toast', role: 'status', style: 'position:fixed;bottom:64px;left:50%;transform:translateX(-50%);z-index:60;' }, msg);
     document.body.appendChild(t);
     setTimeout(function () { t.remove(); }, 2600);
   }
@@ -1391,7 +1560,7 @@
     var t = ev.target.closest('[data-action]');
     if (!t) return;
     var act = t.getAttribute('data-action');
-    if (act === 'go') { ev.preventDefault(); go(t.getAttribute('data-view')); }
+    if (act === 'go') { ev.preventDefault(); if (!document.getElementById('modal-back').hidden) closeModal(); go(t.getAttribute('data-view')); }
     else if (act === 'profiles') openProfiles();
     else if (act === 'use-profile') { state.profile = t.getAttribute('data-profile'); state.flipped = {}; state.candidates = { labs: [] }; state.checks = {}; closeModal(); render(); toast('已切换到 ' + P().name); }
     else if (act === 'dataroot') openModal('资料目录（演示）', [h('p', null, '原型未接入宿主：正式版里这里会显示工作区资料目录与连接状态。')]);
@@ -1433,6 +1602,13 @@
     else if (act === 'add-med') { addMedModal(); }
     else if (act === 'add-note') { addNoteModal(); }
     else if (act === 'add-doc') { addDocModal(); }
+    else if (act === 'add-lab') { addLabModal(); }
+    else if (act === 'trial-open') { openTrialDrawer(t.getAttribute('data-trial')); }
+    else if (act === 'trial-save') { toggleTrialSaved(t.getAttribute('data-trial')); }
+    else if (act === 'trial-unsave') { delete state.trialSaved[t.getAttribute('data-trial')]; render(); toast('已移出收藏'); }
+    else if (act === 'trial-state') { var sid = t.getAttribute('data-trial'); if (state.trialSaved[sid]) { state.trialSaved[sid].state = t.getAttribute('data-state'); render(); } }
+    else if (act === 'trial-src') { state.trialSource = t.getAttribute('data-src'); render(); }
+    else if (act === 'trial-drawer-close') { closeTrialDrawer(); }
     else if (act === 'save-questions') {
       var ta = document.querySelector('textarea[aria-label="想问医生的问题"]');
       if (!ta) return;
@@ -1493,6 +1669,7 @@
   });
   document.addEventListener('keydown', function (ev) {
     if (ev.key !== 'Escape') return;
+    if (state._drawerEl) { closeTrialDrawer(); return; }
     if (!document.getElementById('modal-back').hidden) { closeModal(); return; }
     if (state.pvStack.length) { closePageView(true); return; }
   });
@@ -1509,10 +1686,10 @@
       var ws = sp.parentNode;
       function move(ev2) {
         var rect = ws.getBoundingClientRect();
-        var pct = Math.round((rect.right - ev2.clientX) / rect.width * 100);
-        pct = Math.max(25, Math.min(45, pct));
-        document.documentElement.style.setProperty('--aiw', pct + '%');
-        sp.setAttribute('aria-valuenow', String(pct));
+        var widthPct = Math.round((rect.right - ev2.clientX) / rect.width * 100);
+        widthPct = Math.max(25, Math.min(45, widthPct));
+        document.documentElement.style.setProperty('--aiw', widthPct + '%');
+        sp.setAttribute('aria-valuenow', String(widthPct));
       }
       function up() { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); }
       document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);

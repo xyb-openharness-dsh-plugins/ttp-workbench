@@ -1,19 +1,20 @@
 # M7 发布草稿（冻结：无人值守不发布，待晨审追认后执行）
 
-- 冻结原因：对外动作冻结（夜班禁公开发布/tag/release 推送）
-- 待执行命令（晨审追认后）：
-  1. `git tag v0.2.1 && git push origin v0.2.1`
-  2. `gh release create v0.2.1 release/xyb-community-ttp-workbench-0.2.1.tgz --title "v0.2.1" --notes-file <本目录 RELEASE-NOTES.md>`
-  3. sha256：见 RELEASE-NOTES.md（装包前核对）
-- 前置检查（已实测 2026-11-04）：npm run check exit=0；npm test 13/13；npm run audit 33/33；dsh-wb-cli audit 40/40；V2 装机通过；V3 部分通过（截图待人工补——建议补图后再发）
+- 版本：**v0.2.8**（2026-11-05）｜tgz：`release/xyb-community-ttp-workbench-0.2.8.tgz`
+- sha256：`c0fe17b901a437d814234115031cdc887d81d145486d03b2db510529d66019f4`
+- 待执行命令（追认后）：
+  1. `git tag v0.2.8 && git push origin v0.2.8`
+  2. `gh release create v0.2.8 release/xyb-community-ttp-workbench-0.2.8.tgz --title "v0.2.8" --notes-file docs/release-draft/RELEASE-NOTES-0.2.8.md`
+- 前置检查（已实测 2026-11-05）：npm run check exit=0；npm test 13/13；npm run audit 32/33·0 失败·1 待人工（家族一致性 1 项由本次 CHANGELOG 补录后复跑确认）；probe-ttp-m2 37/37；probe-disease-primer 10/10；dsh-wb-cli audit 40/40（上一轮）；V2 装机 0.2.8 已装且宿主加载；V3 真机 DOM 走查于 0.2.7 完成，0.2.8 待用户重启后复走查；实机截图仍待人工。
+- 冻结原因：对外发布/tag/release 属夜班冻结动作。
 
-## RELEASE-NOTES.md（草稿）
+## RELEASE-NOTES-0.2.8.md（草稿）
 
-# 小宁宝 · TTP 工作台 v0.2.1
+# 小宁宝 · TTP 工作台 v0.2.8
 
-首个可装机版本：发作—缓解病程资料整理（血浆置换按次、血小板/LDH/ADAMTS13 趋势跨方法不合并、缓解期监测、复诊准备）。
-
-- 全部数据为演示内容（合成示例）；私密记录三出口排除
-- 疾病概要四段带来源（2025 版指南 #79 原件已核）
-- 0 访谈、0 临床审核：随访频次/阈值文案均【待核】，不构成任何医学判断
-- sha256: `91d386f7ff4dbd6c4a2879092c9c93169ea9f623304bbd5d3e470e4a2ee58da1`
+- 新增「临床试验」一级菜单：档案对照 / 检索 / 收藏与跟踪（本地快照 75 条，登记状态未核实，不做排名与百分数）
+- 设置三 tab：工作区 / 文档解析（MinerU）/ 临床数据库；通道终态照 source_statuses 如实展示
+- 六类录入窗口支持「保存并继续录入」；就医信息支持多医院与版本号
+- 一图秀 rail 双栏（时间范围/分类勾选指标/显示节点），数据点可键盘访问
+- schema 0001–0004（冻结 0001；0003 就医信息版本列；0004 episode/document 版本列）
+- 0 访谈、0 临床审核；阈值与频次文案【待核】；全部演示数据

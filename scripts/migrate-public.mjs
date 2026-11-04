@@ -19,7 +19,7 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const SRC = join(ROOT, 'prototypes/v0.2');
 const OUT = join(ROOT, 'public');
 const CHECK = process.argv.includes('--check');
-const FILES = ['index.html', 'app.js', 'style.css', 'demo-data.js', 'primer-data.js'];
+const FILES = ['index.html', 'app.js', 'style.css', 'demo-data.js', 'trials-data.js', 'primer-data.js'];
 
 const bannerNote = '<div class="demo-strip" id="demo-strip">本机数据 · 不上传 · AI 面板由宿主提供 · 业务数据仍为演示内容直到导入真实资料</div>';
 

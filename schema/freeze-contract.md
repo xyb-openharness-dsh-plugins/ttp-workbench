@@ -26,3 +26,9 @@
 - `0003_visit_site_edit.sql` sha256：`2e10808be9bff890b228554df68134574ac91bda1c9c6f772f7a7261a61e7b15`
 - 内容：visit_site 补 contact_text/note/in_use/revision/updated_at——就医信息可增、可改（更正=新增版本）、支持多医院多行
 - 0001/0002 哈希不变；判读列断言对新列复扫：0 命中
+
+## 追加迁移 0004（2026-11-05）
+
+- `0004_revision_all.sql` sha256：`249076b6c7e14d079263b0d5647de10f5228bbfac5b0204a560454953f61673f`
+- 内容：episode/document 补 in_use/revision——所有可写记录统一「更正=新版本」语义（Inspector F5）
+- 0001–0003 哈希不变；判读列复扫 0 命中

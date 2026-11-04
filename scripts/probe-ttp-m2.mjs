@@ -3,7 +3,7 @@
  * TTP 原型 v0.2 全量渲染探针（覆盖 prototypes/v0.2/app.js 的每条叶子路由）
  *
  * 判据：
- *  A. 20 条叶子路由逐条加载，页面标题与特征元素出现（孤儿页=0 的机械版）；
+ *  A. 23 条叶子路由逐条加载，页面标题与特征元素出现（孤儿页=0 的机械版）；
  *  B. 一图秀（C 组可断言子集）：两条序列 path ≥2、单点序列 0 path + 1 circle、
  *     空窗口文本含「没有所选指标」、关置换节点不改 path d、末点标签每序列 1 个；
  *  C. 指标卡（MT 可断言子集）：194 定高、aria-pressed 翻转、隐藏面 inert；
@@ -63,12 +63,15 @@ const ROUTE_MARKS = {
   'episode/ep-timeline': ['时间线', 'band-flare'],
   'episode/ep-detail': ['发作详情', '医生原文状态'],
   'episode/ep-log': ['发作记录', '更正=新增版本'],
-  'labs/labs-cat': ['分类指标', '手工录入'],
+  'labs/labs-cat': ['分类指标', '录入一次化验'],
   'labs/labs-trend': ['一图秀', '不可比'],
   'labs/labs-compare': ['可比组', '跨组不合并'],
   'pe/pe-list': ['置换记录', '按发作分组'],
-  'pe/pe-session': ['没有选中某一次置换'],
+  'pe/pe-session': ['单次详情', '从下面挑一次置换'],
   'tx/tx-meds': ['用药记录', '医嘱原文'],
+  'trials/trials-match': ['档案对照', '不排名'],
+  'trials/trials-search': ['检索', '本地快照'],
+  'trials/trials-saved': ['收藏与跟踪', '还没有收藏的登记'],
   'tx/tx-episodes': ['发作内治疗'],
   'review/review-prep': ['就诊准备', '生成一页预览'],
   'review/review-export': ['导出会包含什么'],
@@ -106,7 +109,7 @@ async function main() {
     /* ---------- A. 逐路由覆盖 ---------- */
     const appSrc = (await readFile(join(ROOT, 'prototypes/v0.2/app.js'), 'utf8'))
     const routes = [...(appSrc.match(/var ROUTES = \[([\s\S]*?)\];/) || ['', ''])[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
-    check('A0', 'ROUTES 解析', routes.length === 20, `解析出 ${routes.length} 条`)
+    check('A0', 'ROUTES 解析', routes.length === 23, `解析出 ${routes.length} 条`)
     for (const r of routes) {
       await page.goto(`${URL_BASE}#page=${r.replace('/', '-')}`, { waitUntil: 'networkidle0' })
       await new Promise((res) => setTimeout(res, 120))

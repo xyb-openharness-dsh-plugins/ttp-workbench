@@ -38,9 +38,10 @@ export function readBootstrap(db, profileId) {
 export function readProfile(db, profileId) {
   const pr = db.prepare('SELECT * FROM profile WHERE id = ? ORDER BY rowid').get(profileId);
   if (!pr) return null;
-  const episodes = db.prepare('SELECT * FROM episode WHERE profile_id = ? ORDER BY ord, rowid').all(profileId).map((e) => ({
+  const episodes = db.prepare('SELECT * FROM episode WHERE profile_id = ? AND in_use = 1 ORDER BY ord, rowid').all(profileId).map((e) => ({
     id: 'E' + e.id, label: e.label, start: e.started_on, startPrecision: e.start_precision,
     end: e.ended_on, endPrecision: e.end_precision || 'unknown', stateText: e.state_text, admitted: !!e.admitted,
+    revision: e.revision || 1,
   }));
   const epMap = {};
   db.prepare('SELECT * FROM episode WHERE profile_id = ? ORDER BY ord, rowid').all(profileId).forEach((e) => { epMap[e.id] = 'E' + e.id; });
@@ -57,9 +58,9 @@ export function readProfile(db, profileId) {
     start: m.started_on, startPrecision: m.start_precision || 'day', end: m.ended_on, endPrecision: m.end_precision || 'unknown',
     prescriber: m.prescriber || '', status: m.status_text || '',
   }));
-  const docs = db.prepare('SELECT * FROM document WHERE profile_id = ? ORDER BY rowid').all(profileId).map((d) => ({
+  const docs = db.prepare('SELECT * FROM document WHERE profile_id = ? AND in_use = 1 ORDER BY rowid').all(profileId).map((d) => ({
     id: 'D' + d.id, name: d.name, date: d.collected_on, kind: d.doc_kind === 'pdf' ? 'PDF' : d.doc_kind === 'photo' ? '照片' : '其他',
-    hasOriginal: !!d.has_original, status: d.status_text || (d.has_original ? '已核对' : '未取得原件，据二次来源'),
+    hasOriginal: !!d.has_original, status: d.status_text || (d.has_original ? '已核对' : '未取得原件，据二次来源'), revision: d.revision || 1,
   }));
   const notes = db.prepare('SELECT * FROM feeling_note WHERE profile_id = ? ORDER BY rowid').all(profileId).map((n) => ({
     id: 'N' + n.id, date: n.logged_at, text: n.content, private: n.visibility === 'private',

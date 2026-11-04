@@ -1,6 +1,6 @@
 {
   "name": "@xyb-community/ttp-workbench",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "本机优先的血栓性血小板减少性紫癜（TTP）发作—缓解病程资料整理工作台：血浆置换疗程、血小板/LDH/ADAMTS13 化验趋势、缓解期复发监测与复诊准备（品牌名「小宁宝」为占位，待晨审追认）",
   "private": true,
   "type": "module",

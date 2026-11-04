@@ -1020,16 +1020,61 @@
 
   function pageUrgentInfo(root) {
     var p = P();
-    root.appendChild(pageHead('就医与紧急', '就医信息', '就诊要带的证件与资料，由你自己维护'));
-    root.appendChild(h('div', { class: 'card' },
-      h('table', { class: 'data' },
-        h('tr', null, h('th', null, '常去医院'), h('td', null, (function () { var sites = {}; DEMO.filterPublic(P().labs).forEach(function (l) { if (l.site) sites[l.site] = 1; }); return Object.keys(sites).join('、') || '未登记'; })() + '（演示）')),
-        h('tr', null, h('th', null, '科室'), h('td', null, '血液科（演示）')),
-        h('tr', null, h('th', null, '医生留下的联系方式'), h('td', null, p.plan ? '见行动计划原话来源：' + p.plan.source : '未记录（可请医生写下）')))));
-    root.appendChild(h('div', { class: 'notice info', style: 'margin-top:10px' }, '隐私：本页信息只存在本机，不会上传。'));
+    root.appendChild(pageHead('就医与紧急', '就医信息', '常去医院由你自己维护；每条可修改，改错不丢历史（更正=新版本）'));
+    var sites = (p.sites || []).slice().sort(function (a, b) { return (a.ord || 0) - (b.ord || 0); });
+    if (sites.length) {
+      sites.forEach(function (st) {
+        root.appendChild(h('div', { class: 'card', style: 'margin-bottom:10px' },
+          h('div', { style: 'display:flex;align-items:baseline;gap:10px;flex-wrap:wrap' },
+            h('b', { style: 'font-size:16px' }, st.name),
+            st.department ? h('span', { class: 'pill' }, st.department) : null,
+            h('span', { class: 'sub', style: 'margin-left:auto;font-size:12px;color:var(--soft-fg)' }, '版本 ' + (st.revision || 1))),
+          st.contact ? h('p', { style: 'margin:6px 0 0;font-size:14px' }, '联系方式：' + st.contact) : h('p', { style: 'margin:6px 0 0;color:var(--soft-fg);font-size:13px' }, '联系方式未填——可写护士站/值班电话，或写「出处：复诊记录第 X 页」'),
+          h('div', { style: 'margin-top:8px' },
+            h('button', { class: 'text-button', 'data-action': 'site-edit', 'data-site': st.id }, '修改这条'),
+            h('button', { class: 'text-button', 'data-action': 'site-edit', 'data-site': st.id, style: 'color:var(--soft-fg)' }, '查看历史（原型展示占位）'))));
+      });
+    } else {
+      root.appendChild(h('div', { class: 'empty' },
+        h('div', { class: 'empty-title' }, '还没有常去医院'),
+        h('div', null, '可添加多家：主诊医院、备诊医院、社区随访点都可以。'),
+        h('button', { 'data-action': 'site-edit' }, '添加第一家')));
+    }
+    root.appendChild(h('div', { style: 'margin-top:10px;display:flex;gap:10px;flex-wrap:wrap' },
+      h('button', { class: 'primary', 'data-action': 'site-edit' }, '+ 添加医院 / 就诊点')));
+    root.appendChild(h('div', { class: 'notice info', style: 'margin-top:10px' }, '隐私：本页信息只存在本机，不会上传；联系方式可以填电话，也可以只写「在哪份记录里」的出处。'));
     root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('urgent')));
   }
 
+  /* 就医信息编辑（唯一显式编辑入口 IP6；表单 ≤6 字段 IP6/IP7；多医院 = 多行 visit_site） */
+  function siteEditModal(siteId) {
+    var p = P();
+    var st = siteId ? (p.sites || []).filter(function (x) { return x.id === siteId; })[0] : null;
+    var form = h('form', { class: 'card', style: 'box-shadow:none', onsubmit: function (ev) {
+      ev.preventDefault();
+      var name = form.querySelector('[data-f=name]').value.trim();
+      var dep = form.querySelector('[data-f=dep]').value.trim();
+      var contact = form.querySelector('[data-f=contact]').value.trim();
+      var note = form.querySelector('[data-f=note]').value.trim();
+      if (!name) { toast('名称必填'); return; }
+      if (st) { st.name = name; st.department = dep; st.contact = contact; st.note = note; st.revision = (st.revision || 1) + 1; toast('已修改（新版本 v' + st.revision + '，旧版本保留）'); }
+      else {
+        p.sites = p.sites || [];
+        var maxOrd = p.sites.reduce(function (a, x) { return Math.max(a, x.ord || 0); }, -1);
+        p.sites.push({ id: state.profile + '-S' + (p.sites.length + 1) + '-' + Date.now() % 1000, name: name, department: dep, contact: contact, note: note, ord: maxOrd + 1, revision: 1 });
+        toast('已添加（写入事实层新版本）');
+      }
+      closeModal(); render();
+    } },
+      h('label', null, '名称 *：', h('input', { 'data-f': 'name', required: true, value: st ? st.name : '', 'aria-label': '医院名称' })),
+      h('label', null, '科室：', h('input', { 'data-f': 'dep', value: st ? (st.department || '') : '', 'aria-label': '科室' })),
+      h('label', null, '联系方式：', h('input', { 'data-f': 'contact', value: st ? (st.contact || '') : '', 'aria-label': '联系方式（电话或出处）' })),
+      h('label', null, '备注（私密）：', h('input', { 'data-f': 'note', value: st ? (st.note || '') : '', 'aria-label': '备注' })),
+      h('div', { class: 'form-actions' },
+        h('button', { class: 'primary', type: 'submit' }, st ? '保存为新版本' : '添加'),
+        h('button', { type: 'button', class: 'text-button', 'data-action': 'modal-close' }, '取消')));
+    openModal(st ? '修改 · ' + st.name : '添加医院 / 就诊点', [form]);
+  }
   function pageMindFeel(root) {
     var p = P();
     var pub = DEMO.filterPublic(p.notes);
@@ -1233,6 +1278,7 @@
     else if (act === 'consent') { state.cfg.consent = t.checked; openSettings(); }
     else if (act === 'mineru-show') { state.cfg.showToken = !state.cfg.showToken; openSettings(); }
     else if (act === 'mineru-guide') { var g = document.getElementById('mineru-guide'); if (g) g.hidden = !g.hidden; }
+    else if (act === 'site-edit') { siteEditModal(t.getAttribute('data-site') || null); }
     else if (act === 'demo-toast') { toast('原型演示：此操作在正式版接入'); }
     else if (act === 'toggle-pe') { state.showPE = !state.showPE; render(); }
     else if (act === 'flip') {

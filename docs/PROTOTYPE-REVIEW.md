@@ -68,3 +68,11 @@
 - **设置三 tab**（对齐小粉宝 CFG_TABS）：工作区（资料根目录示意值 + 三块体积 tile + 备份行）/ 文档解析（MinerU）（同意勾选→未勾选不上传、Token 掩码与替换表单、4 步申请指南、pipeline 固定、Flash 10MB/20 页限制；如实标注「本仓按 §五默认未接入，勾选与保存不联网」）/ 临床数据库（M4 离线快照 193 条 + 通道终态如实记录：chictr_online FAILED、ictrp 两次 FAILED、归档语料未配置）。
 - **一图秀展现**（对齐小粉宝 rail）：改 238px 左 rail + 右主图双栏；rail 三节 = 时间范围（全部/近3月/近6月/近12月）+ 选择指标（按分类分组的 checkbox 列表，带色点与最近值，最多 4 条，超出给 toast）+ 显示内容（置换节点 chip）；图表改为 N 条带等高堆叠（每条按该指标全期范围归一化，末点每带 1 个标签），≤900px 折叠为单列。
 - 回归：npm run check exit=0、单测 13/13、probe-ttp-m2 34/34、probe-disease-primer 10/10；新增验收截图 v0-2-5-*（rail 一图秀 + 设置三 tab）。
+
+## 就医信息增改轮（2026-11-05，用户点名）
+
+- **schema 0003**（只增不改）：visit_site 补 contact_text / note / in_use / revision / updated_at——多医院 = 多行；修改 = 新版本（IP8 无裸删除）；0001/0002 哈希不变，判读列复扫 0 命中。
+- **就医信息页**：改为真实数据源（profile.sites）；多医院逐条卡片（名称/科室/联系方式/版本号）；每条「修改这条」+「添加医院/就诊点」主按钮；表单 4 字段（≤6）；空态给添加 CTA；联系方式可填电话或出处。
+- **数据层对齐**：demo-data A=1 家 / B=2 家（唯一源）；播种 demo.js 写 visit_site；读模型 readProfile 按 ord,rowid 且 in_use=1 还原；parity 测试加 sites 断言。
+- **诚实边界**：原型内增改写内存（演示）；开发版写路径（POST /visit_site，revision 自增）为下一轮待办，schema 已就绪。
+- 回归：check exit=0、单测 13/13、probe 34/34；截图 v0-2-6-*；0.2.6 已装 Desktop profile。

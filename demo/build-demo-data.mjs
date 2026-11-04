@@ -8,8 +8,7 @@
  *  - 化验跨方法/机构不合并：method + site 进可比组 key。
  *  - 不含任何判定列（无 diagnosis/risk_level/活动度）；缓解/发作状态只来自医生原文记录。
  */
-/* 由 prototypes/v0.2/demo-data.js 派生（唯一来源原则）：只把 IIFE 换成 ESM export，数据逐字不变。
-   派生脚本：见 M9 回流（demo 派生器）；改原型数据后重跑，勿手改本文件。 */
+/* 由 prototypes/v0.2/demo-data.js 派生（唯一来源原则）：只把 IIFE 换成 ESM export，数据逐字不变。改原型数据后重跑派生，勿手改本文件。 */
 
   var METRICS = [
     { key: 'plt',     name: '血小板计数',       unit: '10⁹/L',  cat: '血常规',       color: 'var(--brand)',  dec: 0, note: '不同实验室参考区间不合并；同方法同机构可比' },
@@ -172,16 +171,24 @@
     source: '复诊记录 · 2026-03-17'
   };
 
+  var sitesA = [
+    { id: 'A-S1', name: '市一医院', department: '血液科', contact: '021-6324xxxx（急诊转血液科）', ord: 0 }
+  ];
+  var sitesB = [
+    { id: 'B-S1', name: '省血液病中心', department: '血液科 · 门诊 3 楼', contact: '021-6xxx0xxx（护士站）', ord: 0 },
+    { id: 'B-S2', name: '社区医院', department: '全科随访', contact: '', ord: 1 }
+  ];
+
   DEMO.profiles.A = {
     id: 'A', name: '档案 A · 刚确诊', tag: '合成示例 · 记录少、多处未知',
     anchor: '2026-09-09', anchorLabel: '首发日期',
-    episodes: epsA, labs: labsA, pe: peA, meds: medsA, docs: docsA, notes: notesA, plan: null,
+    episodes: epsA, labs: labsA, pe: peA, meds: medsA, docs: docsA, notes: notesA, sites: sitesA, plan: null,
     followUp: { text: '医生提到的随访安排：出院后先每月复查（医生口头），具体以医生安排为准', source: '出院随访单（未取得原件）' }
   };
   DEMO.profiles.B = {
     id: 'B', name: '档案 B · 多年随访', tag: '合成示例 · 三年三次发作、指标与置换记录齐全',
     anchor: '2023-10-02', anchorLabel: '首发日期',
-    episodes: epsB, labs: labsB, pe: peB, meds: medsB, docs: docsB, notes: notesB, plan: planB,
+    episodes: epsB, labs: labsB, pe: peB, meds: medsB, docs: docsB, notes: notesB, sites: sitesB, plan: planB,
     followUp: { text: '医生 2026-03-17 提到的节奏：前半年每 3 个月复诊一次，之后按医生安排（患者记录）', source: '复诊记录 · 2026-03-17' }
   };
 

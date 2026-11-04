@@ -110,9 +110,25 @@
       sub ? h('div', { class: 'sub' }, sub) : null);
   }
   function secTitle(t, note) {
-    return h('div', { class: 'section-title' }, h('h2', null, t, note ? h('span', { class: 'sec-note' }, note) : null));
+    return h('div', { class: 'section-title' }, h('h2', null, t), note ? h('span', { class: 'sec-note' }, note) : null);
   }
   function aiBtn(pageKey, extra) { return h('button', { class: 'soft-btn', 'data-action': 'ai-discuss', 'data-ai-page': pageKey, 'data-ai-extra': extra || '' }, '和 AI 讨论'); }
+
+  /* 导航线性图标（家族口径：stroke currentColor，18px） */
+  var ICONS = {
+    dash: '<path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/>',
+    episode: '<path d="M3 12h4l2-6 4 12 2-6h6"/>',
+    labs: '<path d="M4 19V5M4 19h16"/><path d="M8 15l3-4 3 2 4-6"/>',
+    pe: '<path d="M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z"/>',
+    tx: '<rect x="4" y="8" width="16" height="8" rx="4"/><path d="M12 8v8"/>',
+    review: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M9 10h6M9 14h4"/>',
+    urgent: '<path d="M12 3l10 18H2L12 3z"/><path d="M12 9v5M12 17h.01"/>',
+    mind: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 5.5-7 10-7 10z"/>',
+    docs: '<path d="M4 4h9l4 4v12H4z"/><path d="M13 4v4h4"/>'
+  };
+  function navIcon(key) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[key] || '') + '</svg>';
+  }
 
   /* ---------- 私密三出口 ---------- */
   /* 出口 1：看板摘要预览；出口 2：导出；出口 3：AI 上下文 —— 三处都走 DEMO.filterPublic */
@@ -378,14 +394,13 @@
     /* 背面：最近几次 + 迷你折线 */
     var spark = h('div', { class: 'spark' });
     var back = h('div', { class: 'mface back' },
-      h('div', { class: 'm-name' }, m.name + ' · 最近 ' + Math.min(5, items.length) + ' 次'),
-      items.length ? h('table', { class: 'data' },
-        items.slice(0, 5).map(function (l) {
-          return h('tr', null,
-            h('td', { class: 'nowrap-num' }, l.date || '日期不详'),
-            h('td', { class: 'nowrap-num' }, l.value + ' ' + m.unit),
-            h('td', null, l.method + '·' + l.site));
-        })) : h('div', { class: 'sub' }, '暂无记录'),
+      h('div', { class: 'm-name' }, '最近 ' + Math.min(3, items.length) + ' 次 · ' + m.name),
+      items.length ? h('div', { class: 'm-list' }, items.slice(0, 3).map(function (l) {
+        return h('div', { class: 'm-row' },
+          h('span', { class: 'nowrap-num' }, l.date ? (l.datePrecision === 'month' ? l.date + '（月）' : l.date) : '日期不详'),
+          h('b', { class: 'nowrap-num' }, String(l.value)),
+          h('span', { class: 'm-row-src' }, l.method + ' · ' + l.site));
+      })) : h('div', { class: 'sub' }, '暂无记录'),
       spark,
       h('div', { class: 'm-note' }, m.note));
     /* 单点不连线（C2/MT05）：points<2 时不画 path */
@@ -482,54 +497,83 @@
   /* ---------- 页面 ---------- */
   function pageDash(root) {
     var p = P(), c = coursePos(p);
-    root.appendChild(pageHead('小宁宝 · 合成示例档案', (state.profile === 'A' ? '档案 A · 刚确诊' : '档案 B · 多年随访') + '，今天先看什么', '仅回顾与整理，不解读；解读归医生'));
+    root.appendChild(pageHead('NINGPAL / TTP CARE RECORD', (state.profile === 'A' ? '档案 A · 刚确诊' : '档案 B · 多年随访') + '，今天先看什么', '仅回顾与整理，不解读；解读归医生'));
+
     /* 档案切换（Q10 可见入口） */
-    root.appendChild(h('div', { class: 'chart-controls' },
-      h('button', { 'data-action': 'use-profile', 'data-profile': 'A', 'aria-pressed': String(state.profile === 'A') }, '切到档案 A（刚确诊）'),
-      h('button', { 'data-action': 'use-profile', 'data-profile': 'B', 'aria-pressed': String(state.profile === 'B') }, '切到档案 B（多年随访）'),
+    root.appendChild(h('div', { class: 'hero-switch' },
+      h('button', { class: 'soft-btn', 'data-action': 'use-profile', 'data-profile': 'A', 'aria-pressed': String(state.profile === 'A') }, '切到档案 A（刚确诊）'),
+      h('button', { class: 'soft-btn', 'data-action': 'use-profile', 'data-profile': 'B', 'aria-pressed': String(state.profile === 'B') }, '切到档案 B（多年随访）'),
       h('span', { class: 'pill' }, DEMO.banner)));
-    /* 病程位置（非肿瘤口径） */
-    var posCard = h('div', { class: 'card' },
-      h('div', { class: 'eyebrow' }, '病程位置（来自医生记录）'),
+
+    /* 大状态卡：缓解期第 N 天 / 发作中第 N 天（对齐家族 D+N 卡） */
+    var hero = h('div', { class: 'hero-card' },
+      h('div', { class: 'hero-meta' }, h('span', null, 'TTP · 病程位置（来自医生记录）'), h('span', { class: 'pill' }, p.tag)),
       c.mode === 'remission'
-        ? h('div', { class: 'm-value' }, '缓解期第 ' + c.dayN + ' 天')
-        : h('div', { class: 'm-value', style: 'color:var(--danger)' }, '发作中第 ' + c.dayN + ' 天'),
-      h('div', { class: 'sub' }, (c.mode === 'remission' ? '距上次发作开始 ' + c.sinceFlare + ' 天。' : '') + '近 90 天发作 ' + flares90(p) + ' 次。'),
-      h('div', { class: 'sub', style: 'font-size:12.5px;color:var(--soft-fg)' }, '状态文字：' + c.last.stateText));
-    /* 行动计划（只呈现原话） */
-    var planCard = p.plan
-      ? h('div', { class: 'card' }, h('div', { class: 'eyebrow' }, '紧急行动计划（医生原话）'),
-          h('p', { style: 'font-size:15px' }, '「' + p.plan.text.replace(/^「|」.*$/g, '') + '」'),
-          h('div', { class: 'sub', style: 'font-size:12.5px;color:var(--soft-fg)' }, '来源：' + p.plan.source),
-          h('button', { class: 'soft-btn', 'data-action': 'go', 'data-view': 'urgent/urgent-plan' }, '打开完整行动卡 →'))
-      : h('div', { class: 'empty' },
-          h('div', { class: 'empty-title' }, '还没有医生确认的行动计划'),
-          h('div', null, '下次复诊时，可以请医生写一句「什么情况要马上联系谁」，抄录到这里。'),
-          h('button', { 'data-action': 'go', 'data-view': 'urgent/urgent-plan' }, '去行动计划页'));
-    /* 最近化验（三出口之预览：不含私密） */
-    var pubLabs = DEMO.filterPublic(p.labs).slice().sort(function (a, b) { return (b.date || '') > (a.date || '') ? 1 : -1; }).slice(0, 3);
-    var labsCard = h('div', { class: 'card' },
-      h('div', { class: 'eyebrow' }, '最近化验（私密不含）'),
+        ? h('div', { class: 'hero-state' }, '缓解期第 ' + c.dayN + ' 天')
+        : h('div', { class: 'hero-state', style: 'color:var(--danger)' }, '发作中第 ' + c.dayN + ' 天'),
+      h('div', { class: 'hero-sub' }, (c.mode === 'remission' ? '距上次发作（医生记录的结束日）' + c.sinceFlare + ' 天 · ' : '医生记录的开始日 ' + c.last.start + ' · ') + '近 90 天发作 ' + flares90(p) + ' 次'),
+      h('div', { class: 'hero-sub', style: 'font-size:12.5px;color:var(--soft-fg)' }, '状态文字（医生原文）：' + c.last.stateText),
+      h('div', { class: 'hero-actions' },
+        h('button', { class: 'primary', 'data-action': 'go', 'data-view': 'episode/ep-timeline' }, '看发作时间线 →'),
+        h('button', { class: 'soft-btn', 'data-action': 'primer' }, '疾病概要：TTP 是什么？')));
+    root.appendChild(hero);
+
+    /* 行动带：医生行动计划原话 / 空态 */
+    if (p.plan) {
+      root.appendChild(h('div', { class: 'action-strip danger' },
+        h('div', { class: 'as-main' },
+          h('div', { class: 'as-title' }, '紧急行动计划（医生原话）'),
+          h('div', { class: 'as-text' }, p.plan.text.replace(/^「|」.*$/g, ''))),
+        h('div', { class: 'as-actions' },
+          h('button', { class: 'primary', 'data-action': 'go', 'data-view': 'urgent/urgent-plan' }, '打开完整行动卡'),
+          h('button', { class: 'soft-btn', 'data-action': 'go', 'data-view': 'urgent/urgent-info' }, '就医信息'))));
+    } else {
+      root.appendChild(h('div', { class: 'action-strip' },
+        h('div', { class: 'as-main' },
+          h('div', { class: 'as-title' }, '还没有医生确认的行动计划'),
+          h('div', { class: 'as-text' }, '下次复诊请医生写一句「什么情况要马上联系谁」，抄录到这里。本工作台不会替医生决定什么情况算急。')),
+        h('div', { class: 'as-actions' },
+          h('button', { class: 'soft-btn', 'data-action': 'go', 'data-view': 'urgent/urgent-plan' }, '去行动计划页'))));
+    }
+
+    /* 三张快捷卡（对齐小粉宝三连卡） */
+    var quick = h('div', { class: 'quick-row' },
+      quickCard('labs', '记录一次化验', '按报告单抄录，不抄结论', 'labs/labs-cat'),
+      quickCard('pe', '整理置换次数', '按一次发作分组', 'pe/pe-list'),
+      quickCard('review', '复诊准备清单', '资料与想问的问题', 'review/review-prep'));
+    root.appendChild(quick);
+
+    /* 最近化验 + 复诊节奏 */
+    root.appendChild(secTitle('最近的化验', '私密记录不含 · 点「一图秀」看全期走势'));
+    var pubLabs = DEMO.filterPublic(p.labs).slice().sort(function (a, b) { return (b.date || '') > (a.date || '') ? 1 : -1; }).slice(0, 4);
+    var labCard = h('div', { class: 'card' },
       pubLabs.length ? h('table', { class: 'data' }, pubLabs.map(function (l) {
         var m = metricOf(l.metric);
-        return h('tr', null, h('td', null, m.name), h('td', { class: 'nowrap-num' }, l.value + ' ' + m.unit), h('td', null, l.date || '日期不详'), h('td', null, l.site));
-      })) : h('div', { class: 'sub' }, '暂无记录'),
-      h('button', { class: 'text-button', 'data-action': 'go', 'data-view': 'labs/labs-trend' }, '看一图秀 →'));
-    /* 复诊节奏 */
+        return h('tr', null,
+          h('td', null, h('b', { style: 'font-size:15px;color:var(--brand-deep)' }, String(l.value)), ' ', h('span', { class: 'sub' }, m.name + ' · ' + m.unit)),
+          h('td', { class: 'nowrap-num' }, l.date || '日期不详'),
+          h('td', null, l.method + ' · ' + l.site));
+      })) : h('div', { class: 'empty' }, h('div', { class: 'empty-title' }, '暂无化验记录'), h('button', { 'data-action': 'go', 'data-view': 'labs/labs-cat' }, '去录入一次化验')),
+      h('div', { style: 'margin-top:10px' }, h('button', { class: 'text-button', 'data-action': 'go', 'data-view': 'labs/labs-trend' }, '打开一图秀 →')));
     var rhythmCard = h('div', { class: 'card' },
-      h('div', { class: 'eyebrow' }, '复诊节奏（医生提到）'),
-      h('p', { style: 'margin:4px 0' }, p.followUp.text),
+      h('div', { class: 'eyebrow', style: 'letter-spacing:.08em;color:var(--brand);font-size:11.5px;text-transform:uppercase;font-weight:600' }, '复诊节奏（医生提到）'),
+      h('p', { style: 'margin:8px 0 4px;font-size:14.5px' }, p.followUp.text),
       h('div', { class: 'sub', style: 'font-size:12.5px;color:var(--soft-fg)' }, '来源：' + p.followUp.source + ' · 以你的医生安排为准'));
     var g = h('div', { class: 'grid grid-2' });
-    [posCard, planCard, labsCard, rhythmCard].forEach(function (x) { g.appendChild(x); });
+    [labCard, rhythmCard].forEach(function (x) { g.appendChild(x); });
     root.appendChild(g);
-    root.appendChild(secTitle('摘要预览（三出口之一 · 私密已排除）'));
-    root.appendChild(h('div', { class: 'notice info' }, privateNote(p) + '。本预览只汇总可公开的记录。'));
-    root.appendChild(secTitle('需要人手的地方'));
-    root.appendChild(h('div', { class: 'card' },
-      h('p', { style: 'margin:4px 0' }, '整理不容易。这一步不需要完美：先录最近一次化验，剩下的慢慢补。'),
-      h('button', { class: 'primary', 'data-action': 'go', 'data-view': 'labs/labs-cat' }, '去录入一次化验')));
-    root.appendChild(h('div', { style: 'margin-top:14px' }, aiBtn('dash')));
+
+    root.appendChild(secTitle('摘要预览', '三出口之一 · 私密已排除（' + privateNote(p) + '）'));
+    root.appendChild(h('div', { class: 'notice info' }, '本预览只汇总可公开的记录：病程位置、可公开化验、置换次数与资料清单。'));
+    root.appendChild(h('div', { style: 'margin-top:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center' },
+      aiBtn('dash'),
+      h('span', { class: 'sub', style: 'font-size:12.5px;color:var(--soft-fg)' }, 'Demo 态：AI 只把问题填进草稿框，不会发送。')));
+  }
+  function quickCard(iconKey, title, note, route) {
+    return h('button', { class: 'quick-card', 'data-action': 'go', 'data-view': route },
+      h('span', { class: 'q-ic', html: navIcon(iconKey) }),
+      h('span', { class: 'q-text' }, h('b', null, title), h('span', null, note)),
+      h('span', { class: 'q-arrow', 'aria-hidden': 'true' }, '↗'));
   }
 
   function pageEpTimeline(root) {
@@ -957,8 +1001,7 @@
     var nav = document.getElementById('nav');
     nav.innerHTML = '';
     PAGES.forEach(function (pg) {
-      var b = h('button', { class: 'nav-button', 'data-action': 'go', 'data-view': pg.key, 'data-nav': pg.key },
-        pg.name);
+      var b = h('button', { class: 'nav-button', 'data-action': 'go', 'data-view': pg.key, 'data-nav': pg.key, html: navIcon(pg.key) + '<span>' + esc(pg.name) + '</span>' });
       if (state.view === pg.key) b.setAttribute('aria-current', 'page');
       nav.appendChild(b);
     });
@@ -986,10 +1029,14 @@
     fn(main);
     renderSubnav();
     var pageName = (PAGES.filter(function (p) { return p.key === state.view; })[0] || {}).name || '看板';
-    document.getElementById('top-title').textContent = pageName + (state.sub ? ' · ' + (SUBPAGES[state.view].filter(function (s) { return s[0] === state.sub; })[0] || ['', ''])[1] : '');
+    var fullName = pageName + (state.sub ? ' · ' + (SUBPAGES[state.view].filter(function (s) { return s[0] === state.sub; })[0] || ['', ''])[1] : '');
+    var crumbs = document.querySelector('.topbar .crumbs');
+    if (crumbs) crumbs.innerHTML = '小宁宝工作台 / <b id="top-title">' + esc(fullName) + '</b>';
     var pn = P();
     document.getElementById('profile-name').textContent = pn.name;
     document.getElementById('profile-tag').textContent = pn.tag;
+    var av = document.getElementById('profile-avatar');
+    if (av) av.textContent = (state.profile === 'A' ? 'A' : 'B');
   }
   function go(route) {
     if (route.indexOf('/') > 0) { var parts = route.split('/'); state.view = parts[0]; state.sub = parts[1]; }
@@ -1019,6 +1066,7 @@
     else if (act === 'ai-collapse') toggleAI(false);
     else if (act === 'ai-discuss') { ev.preventDefault(); var pk = t.getAttribute('data-ai-page'); var mk = AI_PROMPTS[pk] ? pk : 'dash'; agentDraft(AI_PROMPTS[mk](), false); }
     else if (act === 'ai-send') { toast('演示态：未接通，不会发送'); }
+    else if (act === 'primer') { if (window.DiseasePrimer && window.DiseasePrimer.open) window.DiseasePrimer.open(); }
     else if (act === 'about') openModal('关于小宁宝（演示）', [h('p', null, '交互原型 v0.2 · 全部数据为合成示例。版本以仓库 VERSION 为准。')]);
     else if (act === 'pv-open') { ev.preventDefault(); openPageView('pe/pe-session', { peId: t.getAttribute('data-pe') }); }
     else if (act === 'pv-close') closePageView(true);
@@ -1136,6 +1184,7 @@
       if (qp.get('tw')) state.timeWindow = qp.get('tw');
       if (qp.get('hidepe') === '1') state.showPE = false;
     } catch (e) { /* 老浏览器忽略 */ }
+    document.body.classList.add('ai-collapsed');
     render();
     document.getElementById('foot-version').textContent = '版本：交互原型 v0.2（构建自仓库 VERSION）';
   }

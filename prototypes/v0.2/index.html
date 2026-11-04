@@ -13,27 +13,33 @@
 <body>
 <a class="skip" href="#main">跳到主要内容</a>
 
-<div class="demo-strip" id="demo-strip">原型声明：本页全部为合成示例，未接入宿主，不包含任何真实病历。</div>
+<div class="demo-strip" id="demo-strip"><span><b>交互原型 v0.2</b> · 全部为合成示例</span><span>仅本页演示 · 刷新重置 · 未接入 DSH / AI</span></div>
 
 <div class="shell">
   <aside class="sidebar" aria-label="主导航">
-    <div class="brand"><span class="dot" aria-hidden="true"></span>小宁宝 · TTP 工作台</div>
+    <div class="brand">
+      <span class="logo" aria-hidden="true">宁</span>
+      <span class="brand-text"><b>小宁宝</b><span class="brand-sub">NingPal · TTP 工作台</span></span>
+    </div>
     <button class="profile-btn" id="profile-btn" data-action="profiles" aria-haspopup="dialog">
-      <span class="p-name" id="profile-name">—</span>
-      <span class="p-tag" id="profile-tag">—</span>
+      <span class="p-avatar" id="profile-avatar" aria-hidden="true">A</span>
+      <span class="p-text"><span class="p-name" id="profile-name">—</span>
+      <span class="p-tag" id="profile-tag">—</span></span>
+      <span class="p-chev" aria-hidden="true">⌄</span>
     </button>
     <nav id="nav" aria-label="一级导航"></nav>
+    <div class="nav-foot"><b>小 X 宝家族</b><br>一步一步记录，急症期也不乱。</div>
   </aside>
 
   <div class="col" style="flex:1;display:flex;flex-direction:column;min-width:0;">
     <header class="topbar">
-      <strong id="top-title">看板</strong>
+      <span class="crumbs">小宁宝工作台 / <b id="top-title">看板</b></span>
       <span class="status-line" id="status-line">演示模式 · 数据仅在本页内存中</span>
       <div class="top-actions">
-        <button data-action="dataroot" aria-label="资料目录：演示模式，未连接">资料目录</button>
+        <button class="dir-chip" data-action="dataroot" aria-label="资料目录：演示模式，未连接"><span class="dot-ok" aria-hidden="true"></span>资料目录 未接入</button>
         <button data-action="settings" aria-label="打开设置：数据口径与大字">设置</button>
         <button data-action="font" id="font-toggle" aria-pressed="false" title="切换大字">大字 Aa</button>
-        <button data-action="ai" id="agent-toggle" aria-expanded="false" aria-controls="agent-panel" aria-label="AI 对话（演示，未接通）">AI</button>
+        <button class="ai-pill" data-action="ai" id="agent-toggle" aria-expanded="false" aria-controls="agent-panel" aria-label="AI 对话（演示，未接通）">AI 对话</button>
         <button class="ver-chip" data-action="about" aria-label="关于小宁宝：版本与口径说明">原型 v0.2</button>
         <button data-action="primer" class="dp-trigger" data-primer-open aria-label="疾病概要：定义、医学资料规范和指南情况、治疗全景、发展趋势">?</button>
       </div>

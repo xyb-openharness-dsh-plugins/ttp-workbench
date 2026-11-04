@@ -48,7 +48,9 @@
     aiOpen: false, aiSessionId: 0,
     timeWindow: 'all', showPE: true, showLabDots: true,
     flipped: {},            // mcard key -> true
-    trend: { s1: 'plt', s2: 'ldh' },
+    sel: ['plt', 'ldh'],
+    settingsTab: 'store',
+    cfg: { consent: false, showToken: false, tokenMasked: 'sk-8f2c****' },
     candidates: { labs: [] }, // AI/导入候选，核对前不入图
     checks: {},             // 已核对候选 id
     pvStack: [],            // 整页视图栈（唯一真源是 history，栈只存 UI 上下文）
@@ -227,8 +229,9 @@
     return order.map(function (k) { return { key: k, items: g[k] }; });
   }
   function inWindow(items) {
-    if (state.timeWindow === 'all') return items;
-    var lim = new Date(DEMO_NOW); lim.setMonth(lim.getMonth() - 3);
+    var back = state.timeWindow === '90d' ? 3 : state.timeWindow === '180d' ? 6 : state.timeWindow === '365d' ? 12 : 0;
+    if (!back) return items;
+    var lim = new Date(DEMO_NOW); lim.setMonth(lim.getMonth() - back);
     lim = lim.toISOString().slice(0, 10);
     return items.filter(function (l) { return l.date && l.date >= lim; });
   }
@@ -237,69 +240,102 @@
   var CH = { w: 720, h: 300, padL: 42, padR: 58, padT: 16, padB: 34 };
   function renderTrend(container) {
     var p = P();
-    container.appendChild(h('div', { class: 'chart-controls' },
-      h('button', { 'data-action': 'tw', 'data-tw': 'all', 'aria-pressed': String(state.timeWindow === 'all') }, '全期'),
-      h('button', { 'data-action': 'tw', 'data-tw': '90d', 'aria-pressed': String(state.timeWindow === '90d') }, '近 3 个月'),
-      h('button', { 'data-action': 'toggle-pe', 'aria-pressed': String(state.showPE) }, state.showPE ? '隐藏置换节点' : '显示置换节点')));
-    /* 指标点选：按分类分组的上/下序列选择条（不用下拉框） */
-    var picker = h('div', { class: 'metric-picker' });
-    [['s1', '上序列'], ['s2', '下序列']].forEach(function (slot) {
-      var row = h('div', { class: 'pick-row' },
-        h('span', { class: 'pick-label' }, slot[1]));
-      var cur = state.trend[slot[0]];
-      var cats = [];
-      DEMO.metrics.forEach(function (m) { if (cats.indexOf(m.cat) < 0) cats.push(m.cat); });
-      cats.forEach(function (cat) {
-        var group = h('span', { class: 'pick-group' }, h('span', { class: 'pick-cat' }, cat));
-        DEMO.metrics.filter(function (m) { return m.cat === cat; }).forEach(function (m) {
-          group.appendChild(h('button', {
-            class: 'pick-chip', 'data-action': 'pick-metric', 'data-slot': slot[0], 'data-metric': m.key,
-            'aria-pressed': String(cur === m.key)
-          }, m.name));
-        });
-        row.appendChild(group);
-      });
-      picker.appendChild(row);
+    var sel = state.sel.slice(0, 4);
+    /* 双栏：左 rail（对齐小粉宝一图秀）+ 右主图 */
+    var layout = h('div', { class: 'onechart-layout' });
+    container.appendChild(layout);
+
+    /* ---- 左 rail ---- */
+    var ranges = [['all', '全部'], ['90d', '近 3 月'], ['180d', '近 6 月'], ['365d', '近 12 月']];
+    var rangeChips = h('div', { class: 'chips' });
+    ranges.forEach(function (r) {
+      rangeChips.appendChild(h('button', { class: 'chip', 'data-action': 'tw', 'data-tw': r[0], 'aria-pressed': String(state.timeWindow === r[0]) }, r[1]));
     });
-    container.appendChild(picker);
+    var metricList = h('div', { class: 'metric-list' });
+    var cats = [];
+    DEMO.metrics.forEach(function (m) { if (cats.indexOf(m.cat) < 0) cats.push(m.cat); });
+    cats.forEach(function (cat) {
+      metricList.appendChild(h('div', { class: 'cat-label' }, cat));
+      DEMO.metrics.filter(function (m) { return m.cat === cat; }).forEach(function (m) {
+        var last = (function () { var it = DEMO.filterPublic(p.labs).filter(function (l) { return l.metric === m.key; }); it.sort(function (a, b) { return (b.date || '9999') < (a.date || '9999') ? -1 : 1; }); return it[0]; })();
+        var cb = h('input', { type: 'checkbox', 'data-action': 'sel-metric', 'data-metric': m.key });
+        if (sel.indexOf(m.key) >= 0) cb.checked = true;
+        metricList.appendChild(h('label', { class: 'metric-pick' },
+          cb,
+          h('i', { style: 'background:' + m.color }),
+          h('span', null, m.name),
+          h('small', null, last ? String(last.value) : '—')));
+      });
+    });
+    var pickDetails = h('details', { class: 'pick' });
+    if (typeof window !== 'undefined' && window.innerWidth > 900) pickDetails.setAttribute('open', '');
+    pickDetails.appendChild(h('summary', null, h('span', null, '选择指标'), h('small', null, '最多 4 个 · 已选 ' + sel.length)));
+    pickDetails.appendChild(metricList);
+    pickDetails.appendChild(h('p', { class: 'small-note', style: 'margin-top:6px' }, '共 ' + DEMO.metrics.length + ' 项，可滚动 · 勾选后图表立即更新'));
+    var rail = h('aside', { class: 'rail', 'aria-label': '一图秀筛选项' },
+      h('section', null, h('h3', null, '时间范围'), rangeChips),
+      h('section', null, pickDetails),
+      h('section', null,
+        h('h3', null, '显示内容'),
+        h('div', { class: 'chips' }, h('button', { class: 'chip', 'data-action': 'toggle-pe', 'aria-pressed': String(state.showPE) }, '置换节点')),
+        h('p', { class: 'small-note', style: 'margin-top:8px' }, '发作区间带始终显示（医生记录）；虚线浅红。')));
+    layout.appendChild(rail);
+
+    /* ---- 右主图 ---- */
+    var mainCol = h('div', { class: 'timeline-main' });
+    layout.appendChild(mainCol);
     var panel = h('div', { class: 'chart-panel' });
-    container.appendChild(panel);
-    var s1m = metricOf(state.trend.s1), s2m = metricOf(state.trend.s2);
-    var svg = svgEl('svg', { class: 'chart', viewBox: '0 0 ' + CH.w + ' ' + CH.h, role: 'img', 'aria-label': '一图秀：两条化验序列，各自全期范围归一化，不可比' });
+    mainCol.appendChild(panel);
+    var svg = svgEl('svg', { class: 'chart', viewBox: '0 0 ' + CH.w + ' ' + CH.h, role: 'img', 'aria-label': '一图秀：已选化验序列各自全期范围归一化，不可比' });
     panel.appendChild(svg);
 
-    var groups1 = comparableGroups(p.labs, s1m.key).map(function (g) { return { g: g, items: inWindow(g.items) }; }).filter(function (x) { return x.items.length; });
-    var groups2 = comparableGroups(p.labs, s2m.key).map(function (g) { return { g: g, items: inWindow(g.items) }; }).filter(function (x) { return x.items.length; });
-    if (!groups1.length && !groups2.length) {
+    var bands = sel.map(function (k, i) { return { m: metricOf(k), cls: i % 2 === 0 ? 'lab' : 'ldh', groups: [] }; }).filter(function (b) { return b.m; });
+    bands.forEach(function (b) {
+      b.groups = comparableGroups(p.labs, b.m.key).map(function (g) { return { g: g, items: inWindow(g.items) }; }).filter(function (x) { return x.items.length; });
+    });
+    var any = bands.some(function (b) { return b.groups.length; });
+    if (!sel.length) {
+      svg.appendChild(svgEl('text', { x: CH.padL + 10, y: CH.h / 2 }, '没有所选指标——从左侧勾选，最多 4 条'));
+      panel.appendChild(h('div', { class: 'sub', style: 'color:var(--soft-fg);font-size:13px;margin-top:6px;' }, '不同方法/机构分线，互不可比。'));
+      panel.setAttribute('data-points', '0');
+      panel.setAttribute('data-paths-visible', '0');
+      return;
+    }
+    if (!any) {
       svg.appendChild(svgEl('text', { x: CH.padL + 10, y: CH.h / 2 }, '所选时间窗内没有所选指标的数据'));
       panel.appendChild(h('div', { class: 'sub', style: 'color:var(--soft-fg);font-size:13px;margin-top:6px;' },
         '切换时间窗或换指标；不同方法/机构分线，互不可比。'));
+      panel.setAttribute('data-points', '0');
+      panel.setAttribute('data-paths-visible', '0');
       return;
     }
 
-    /* x 域：窗口内两序列的全部日期 */
-    var all = [].concat.apply([], groups1.concat(groups2).map(function (x) { return x.items; }));
+    /* x 域 */
+    var all = [].concat.apply([], bands.map(function (b) { return [].concat.apply([], b.groups.map(function (x) { return x.items; })); }));
     var dmin = all.reduce(function (a, l) { return l.date < a ? l.date : a; }, all[0].date);
     var dmax = all.reduce(function (a, l) { return l.date > a ? l.date : a; }, all[0].date);
-    if (state.timeWindow === '90d') { var lim = new Date(DEMO_NOW); lim.setMonth(lim.getMonth() - 3); dmin = dmin < lim.toISOString().slice(0, 10) ? lim.toISOString().slice(0, 10) : dmin; }
+    var monthsBack = state.timeWindow === '90d' ? 3 : state.timeWindow === '180d' ? 6 : state.timeWindow === '365d' ? 12 : 0;
+    if (monthsBack) { var lim = new Date(DEMO_NOW); lim.setMonth(lim.getMonth() - monthsBack); dmin = dmin < lim.toISOString().slice(0, 10) ? lim.toISOString().slice(0, 10) : dmin; }
     var x = function (date) {
       var t0 = new Date(dmin + 'T00:00'), t1 = new Date(dmax + 'T00:00');
       var f = (new Date(date + 'T00:00') - t0) / Math.max(1, (t1 - t0));
       return CH.padL + f * (CH.w - CH.padL - CH.padR);
     };
-    /* y：各序列按该指标全期 min/max 归一化，各占一条带（高度相同 → C1 恒成立） */
+
+    /* y：每条序列一条带，等高（C1 恒成立） */
+    var bandTop0 = CH.padT + 16;
+    var bandH = Math.floor((CH.h - CH.padB - 26 - bandTop0 - (bands.length - 1) * 14) / bands.length);
     function bandY(items, top, bottom) {
       var full = DEMO.filterPublic(p.labs).filter(function (l) { return l.metric === items[0].metric; }).map(function (l) { return l.value; });
       var mn = Math.min.apply(null, full), mx = Math.max.apply(null, full);
       if (mx === mn) mx = mn + 1;
       return function (v) { return top + (1 - (v - mn) / (mx - mn)) * (bottom - top); };
     }
-    var B1T = CH.padT + 4, B1B = CH.padT + 4 + 120, B2T = B1B + 22, B2B = B2T + 120;
 
     /* 发作带（背景层，最底） */
     p.episodes.forEach(function (e) {
       var xs = x(e.start), xe = (e.endPrecision === 'day' && e.end) ? x(e.end) : CH.w - CH.padR;
-      svg.appendChild(svgEl('rect', { class: 'band-flare', x: xs, y: CH.padT, width: Math.max(2, xe - xs), height: B2B - CH.padT, 'data-kind': 'flare' }));
+      svg.appendChild(svgEl('rect', { class: 'band-flare', x: xs, y: bandTop0 - 14, width: Math.max(2, xe - xs), height: bandH * bands.length + 14 * bands.length, 'data-kind': 'flare' }));
     });
     /* 网格 + x 刻度 */
     var t0 = new Date(dmin + 'T00:00'), t1 = new Date(dmax + 'T00:00');
@@ -310,46 +346,41 @@
       var key = cur.getFullYear() + '-' + ('0' + (cur.getMonth() + 1)).slice(-2) + '-01';
       var tx = x(key);
       if (tx >= CH.padL - 1 && tx <= CH.w - CH.padR + 1) {
-        svg.appendChild(svgEl('line', { class: 'gridline', x1: tx, y1: CH.padT, x2: tx, y2: CH.h - CH.padB }));
-        var lab = svgEl('text', { x: Math.min(CH.w - CH.padR - 24, Math.max(CH.padL, tx - 16)), y: CH.h - 10 }, key.slice(0, 7));
-        svg.appendChild(lab);
+        svg.appendChild(svgEl('line', { class: 'gridline', x1: tx, y1: bandTop0 - 14, x2: tx, y2: CH.h - CH.padB }));
+        svg.appendChild(svgEl('text', { x: Math.min(CH.w - CH.padR - 24, Math.max(CH.padL, tx - 16)), y: CH.h - 10 }, key.slice(0, 7)));
       }
       cur.setMonth(cur.getMonth() + step);
     }
 
-    function drawSeries(groups, m, top, bottom, cls) {
-      var yf = bandY(groups[0].items, top, bottom);
-      var added = 0;
-      groups.forEach(function (gr) {
+    var totalPoints = 0;
+    bands.forEach(function (b, bi) {
+      if (!b.groups.length) return;
+      var top = bandTop0 + bi * (bandH + 14), bottom = top + bandH;
+      var yf = bandY(b.groups[0].items, top, bottom);
+      b.groups.forEach(function (gr) {
         var pts = gr.items.map(function (l) { return [x(l.date), yf(l.value), l]; });
         if (pts.length > 1) {
           var d = smoothPath(pts.map(function (pt) { return [pt[0], pt[1]]; }));
-          var path = svgEl('path', { class: 'line-' + cls, d: d, 'data-group': gr.key, 'data-d': d });
+          var path = svgEl('path', { class: 'line-' + b.cls, d: d, 'data-group': gr.key, 'data-d': d, 'data-band': String(bi) });
           path.addEventListener('click', function (ev) { ev.stopPropagation(); });
           svg.appendChild(path);
         }
         pts.forEach(function (pt) {
-          var c = svgEl('circle', { class: 'dot dot-' + cls, cx: pt[0], cy: pt[1], 'data-report': pt[2].reportId || '', 'data-lab-id': pt[2].id, 'data-month': pt[2].datePrecision === 'month' ? '1' : '' });
+          var c = svgEl('circle', { class: 'dot dot-' + b.cls, cx: pt[0], cy: pt[1], 'data-report': pt[2].reportId || '', 'data-lab-id': pt[2].id, 'data-month': pt[2].datePrecision === 'month' ? '1' : '' });
           c.addEventListener('click', function (ev) { ev.stopPropagation(); openLabSource(pt[2]); });
           svg.appendChild(c);
-          added++;
+          totalPoints++;
         });
-        /* 末点数值标签（每条带 1 个，C5）：只标最右可比组 */
         var lastPt = pts[pts.length - 1];
-        var lastGroup = groups[groups.length - 1];
-        if (gr === lastGroup) {
-          var t = svgEl('text', { x: Math.min(CH.w - CH.padR + 6, lastPt[0] + 6), y: Math.max(top + 10, Math.min(bottom - 2, lastPt[1] + 4)) },
-            String(lastPt[2].value) + (m.unit ? ' ' + m.unit : ''));
-          svg.appendChild(t);
+        if (gr === b.groups[b.groups.length - 1]) {
+          svg.appendChild(svgEl('text', { x: Math.min(CH.w - CH.padR + 6, lastPt[0] + 6), y: Math.max(top + 10, Math.min(bottom - 2, lastPt[1] + 4)) },
+            String(lastPt[2].value) + (b.m.unit ? ' ' + b.m.unit : '')));
         }
       });
-      svg.appendChild(svgEl('text', { x: CH.padL, y: top - 3, 'font-size': '11' }, m.name + '（全期 ' + (function () { var vs = DEMO.filterPublic(p.labs).filter(function (l) { return l.metric === m.key; }).map(function (l) { return l.value; }); return vs.length ? Math.min.apply(null, vs) + '–' + Math.max.apply(null, vs) : '—'; })() + '）· 不可比'));
-      return added;
-    }
-    var n1 = groups1.length ? drawSeries(groups1, s1m, B1T, B1B, 'lab') : 0;
-    var n2 = groups2.length ? drawSeries(groups2, s2m, B2T, B2B, 'ldh') : 0;
+      var vs = DEMO.filterPublic(p.labs).filter(function (l) { return l.metric === b.m.key; }).map(function (l) { return l.value; });
+      svg.appendChild(svgEl('text', { x: CH.padL, y: top - 4, 'font-size': '11' }, b.m.name + '（全期 ' + (vs.length ? Math.min.apply(null, vs) + '–' + Math.max.apply(null, vs) : '—') + '）· 不可比'));
+    });
 
-    /* 置换节点：独立于数据带的节点条（分层；C4 关闭它不改 path） */
     if (state.showPE) {
       DEMO.filterPublic(P().pe).forEach(function (s) {
         if (s.datePrecision !== 'day' || !s.date || s.date < dmin || s.date > dmax) return;
@@ -361,16 +392,14 @@
     }
 
     panel.appendChild(h('div', { class: 'chart-legend' },
-      h('span', null, h('span', { class: 'sw', style: 'background:var(--brand)' }), s1m.name + '（点开看原始报告）'),
-      h('span', null, h('span', { class: 'sw', style: 'background:var(--action)' }), s2m.name),
       h('span', null, '虚线带 = 发作区间（医生记录）'),
-      h('span', null, '两条线各按全期范围缩放，纵向不可比'),
+      h('span', null, '每条线按该指标全期范围缩放，纵向不可比'),
+      h('span', null, '点数据点看原始报告'),
       h('span', null, '日期不详的记录：' + DEMO.filterPublic(p.labs).filter(function (l) { return l.datePrecision === 'unknown'; }).length + ' 条（见分类指标页）')
     ));
-    panel.setAttribute('data-points', String(n1 + n2));
+    panel.setAttribute('data-points', String(totalPoints));
     panel.setAttribute('data-paths-visible', String(svg.querySelectorAll('path').length));
   }
-
   /* MT09：点图点开原始来源（弹层，不翻卡） */
   function openLabSource(lab) {
     var m = metricOf(lab.metric);
@@ -506,25 +535,84 @@
   }
   function openSettings() {
     var p = P();
-    openModal('设置', [
-      h('div', { class: 'set-group' },
-        h('div', { class: 'set-title' }, '显示'),
-        h('label', { class: 'set-row' }, h('span', null, '大字模式'), h('button', { class: 'soft-btn', 'data-action': 'font' }, document.body.classList.contains('large') ? '关闭大字' : '打开大字'))),
-      h('div', { class: 'set-group' },
-        h('div', { class: 'set-title' }, '数据与隐私'),
-        h('div', { class: 'set-row' }, h('span', null, '资料目录'), h('span', { class: 'set-val' }, '演示态 · 未接入本机目录')),
-        h('div', { class: 'set-row' }, h('span', null, '私密记录'), h('span', { class: 'set-val' }, '看板预览 / 导出 / AI 上下文三处均排除')),
-        h('div', { class: 'set-row' }, h('span', null, '当前档案'), h('span', { class: 'set-val' }, p.name + '（' + p.tag + '）'))),
-      h('div', { class: 'set-group' },
-        h('div', { class: 'set-title' }, '数据口径'),
-        h('div', { class: 'set-row' }, h('span', null, '解读归属'), h('span', { class: 'set-val' }, '仅回顾，不解读；解读归医生')),
-        h('div', { class: 'set-row' }, h('span', null, '化验可比'), h('span', { class: 'set-val' }, '仅同一指标 + 方法 + 机构内比较，不合并、不做差')),
-        h('div', { class: 'set-row' }, h('span', null, '来源标注'), h('span', { class: 'set-val' }, '指南与阈值标注版本；未取得原件处写明「据二次来源」'))),
-      h('div', { class: 'set-group' },
-        h('div', { class: 'set-title' }, '关于'),
-        h('div', { class: 'set-row' }, h('span', null, '版本'), h('span', { class: 'set-val' }, '交互原型 v0.2 · 全部为合成示例')),
-        h('div', { class: 'set-row' }, h('span', null, '疾病概要'), h('button', { class: 'text-button', 'data-action': 'primer' }, '打开 →')))
-    ]);
+    var TABS = [['store', '工作区'], ['parse', '文档解析（MinerU）'], ['clinic', '临床数据库']];
+    var tabs = h('div', { class: 'cfg-tabs', role: 'tablist', 'aria-label': '设置分区' });
+    TABS.forEach(function (t) {
+      tabs.appendChild(h('button', { role: 'tab', 'aria-selected': String(state.settingsTab === t[0]), 'data-action': 'settings-tab', 'data-tab': t[0] }, t[1]));
+    });
+    var body = h('div', { style: 'margin-top:14px' });
+    if (state.settingsTab === 'store') {
+      body.appendChild(h('div', { class: 'notice info' }, '下面是示意值。真实版本由宿主目录选择器返回绝对路径，并拒绝根目录、用户主目录与下载根目录。'));
+      body.appendChild(h('div', { class: 'cfg-block' },
+        h('span', { class: 'form-label' }, '业务资料根目录'),
+        h('div', { class: 'path-row' }, h('code', null, '（演示态 · 未连接宿主目录）'), h('button', { class: 'soft-btn', 'data-action': 'demo-toast' }, '更改位置')),
+        h('p', { class: 'small-note' }, '原件、解析派生文件与数据库都放在这里；该目录不进安装包、不进日志、不进 Git。更改后下次导入生效，已有记录不搬家。')));
+      body.appendChild(h('div', { class: 'stat-row', style: 'margin:14px 0' },
+        h('div', { class: 'stat-tile' }, h('span', null, '原件'), h('b', null, '2.4 MB')),
+        h('div', { class: 'stat-tile' }, h('span', null, '派生文件'), h('b', null, '0.6 MB')),
+        h('div', { class: 'stat-tile' }, h('span', null, '数据库'), h('b', null, '0.1 MB'))));
+      body.appendChild(h('div', { class: 'set-row' },
+        h('div', null, h('b', null, '备份'), h('p', { class: 'small-note' }, '上次备份 2026-10-28 · 位置在资料根目录下的 backup/')),
+        h('div', { style: 'display:flex;gap:8px' },
+          h('button', { class: 'soft-btn', 'data-action': 'demo-toast' }, '立即备份'),
+          h('button', { class: 'text-button', 'data-action': 'demo-toast' }, '从备份恢复'))));
+      body.appendChild(h('p', { class: 'small-note' }, '恢复会覆盖当前数据库与派生文件，原件保留；执行前需二次确认并列出覆盖范围。'));
+    } else if (state.settingsTab === 'parse') {
+      body.appendChild(h('div', { class: 'choice' + (state.cfg.consent ? ' on' : ' off'), role: 'group', 'aria-label': '解析方式' },
+        h('div', { class: 'choice-head' }, h('b', null, 'MinerU 解析'),
+          h('span', { class: 'pill', style: state.cfg.consent ? 'background:var(--ok-weak);color:var(--ok)' : 'background:var(--warn-weak);color:var(--warn)' }, state.cfg.consent ? '已同意' : '未确认')),
+        h('p', { class: 'small-note' }, '默认推荐。TXT / MD / CSV 始终先走本地抽取，不上传；只有扫描件、图片、PDF 与 Office 才送到 MinerU。'),
+        h('label', { class: 'check-row' },
+          h('input', { type: 'checkbox', 'data-action': 'consent', ...(state.cfg.consent ? { checked: true } : {}) }),
+          h('span', null, '我了解：所选文件会上传到 MinerU 云端解析。只传文件本身，不传档案、化验结论、治疗记录；可随时关闭。')),
+        state.cfg.consent ? null : h('p', { class: 'small-note', style: 'color:var(--warn)' }, '未勾选前不会上传，也不会调用 MinerU。')));
+      body.appendChild(h('div', { class: 'choice', style: 'margin-top:14px' },
+        h('div', { class: 'choice-head' }, h('b', null, 'API Token'), h('span', { class: 'set-val' }, '未配置')),
+        h('div', { class: 'token-row' }, h('code', { class: 'masked' }, state.cfg.tokenMasked), h('span', { class: 'small-note' }, '只显示后 4 位，不提供「查看完整值」')),
+        h('form', { id: 'mineru-form', style: 'margin-top:10px', onsubmit: function (ev) { ev.preventDefault(); toast('原型演示：校验与保存未接入'); } },
+          h('label', null,
+            h('span', { class: 'form-label' }, '替换为我的 Token（可选）'),
+            h('div', { class: 'token-row' },
+              h('input', { name: 'token', type: state.cfg.showToken ? 'text' : 'password', placeholder: 'ey-...', autocomplete: 'off', spellcheck: 'false', disabled: !state.cfg.consent }),
+              h('button', { type: 'button', class: 'text-button', 'data-action': 'mineru-show' }, state.cfg.showToken ? '隐藏' : '显示'))),
+          h('div', { class: 'form-actions' },
+            h('button', { class: 'primary', type: 'submit' }, '校验并保存'),
+            h('button', { type: 'button', class: 'text-button', 'data-action': 'mineru-guide' }, '如何申请？'))),
+        h('p', { class: 'small-note' }, 'Token 存于 ~/.mineru/config.yaml，不写进患者库、不进日志、不进导出。保存前先校验一次，失败分三种原因：401 无效 / 429 配额用尽 / 网络错误。'),
+        h('div', { id: 'mineru-guide', hidden: true },
+          h('div', { class: 'notice info' },
+            h('b', null, '4 步拿到自己的 Token'),
+            h('ol', { style: 'padding-left:18px;margin:8px 0 0' },
+              h('li', null, '访问 mineru.net，注册并登录'),
+              h('li', null, '进入「API」→「API 管理」'),
+              h('li', null, '创建 Token 并复制'),
+              h('li', null, '回到这里粘贴，点「校验并保存」')),
+            h('p', { style: 'margin-top:8px' }, h('span', { class: 'small-note' }, '原型不提供外链跳转；正式版会先说明去向再打开 mineru.net/token 申请页。'))))));
+      body.appendChild(h('div', { class: 'set-row', style: 'margin-top:6px' },
+        h('div', null, h('b', null, '解析模型：pipeline（固定）'), h('p', { class: 'small-note' }, '面向病历优先保留来源内容，不做生成式补写。VLM 可能生成原文不存在的内容，本流程不提供该选项。')),
+        h('span', { class: 'pill' }, '不可切换')));
+      body.appendChild(h('div', { class: 'notice', style: 'margin-top:12px' }, 'Flash 免费解析单文件上限 10 MB / 20 页，真实扫描病历常超过这个范围。超限时保留原件并提示换 Token 或稍后重试，不丢文件。认证失败自动尝试 Flash，成功时界面明确标注「Flash 降级解析」。'));
+      body.appendChild(h('p', { class: 'small-note', style: 'margin-top:10px' }, '当前状态：未接入（本原型按 DEV-REQUIREMENTS §五 的可回退默认值关闭文档解析）；上面的界面是正式版形态预览，勾选与保存都不会真正联网。'));
+    } else {
+      body.appendChild(h('div', { class: 'notice info' }, '临床数据库用于试验与登记信息的离线检索。本仓 M4 已构建离线快照；未接入或断网时，临床页给空态与获取说明，不报错、不假装有结果。'));
+      body.appendChild(h('div', { class: 'set-row' },
+        h('div', null, h('b', null, '状态：离线快照已构建'), h('p', { class: 'small-note' }, '2026-11-04 · 193 条（同登记号合并）· manifest/jsonl/sqlite 三方计数一致')),
+        h('span', { class: 'pill', style: 'background:var(--ok-weak);color:var(--ok)' }, '已构建')));
+      body.appendChild(h('div', { class: 'set-row' },
+        h('div', null, h('b', null, '数据来源'), h('p', { class: 'small-note' }, 'CDE 药物临床试验 14 / CTV 4 / ICTRP 175；每条保留来源与检索日期，登记状态一律「未核实」')),
+        h('span', { class: 'pill' }, '快照')));
+      body.appendChild(h('div', { class: 'set-row' },
+        h('div', null, h('b', null, '通道终态（如实记录）'), h('p', { class: 'small-note' }, 'chictr_online 全程 FAILED、ictrp 两次 FAILED——查过但服务失败，不是零结果；ChiCTR 归档语料仅胰腺癌覆盖，未配置')),
+        h('span', { class: 'pill', style: 'background:var(--warn-weak);color:var(--warn)' }, '部分失败')));
+      body.appendChild(h('div', { class: 'set-row' },
+        h('div', null, h('b', null, '离线可用'), h('p', { class: 'small-note' }, '未接入或断网时给空态与获取说明')),
+        h('span', { class: 'pill', style: 'background:var(--ok-weak);color:var(--ok)' }, '设计约束')));
+      body.appendChild(h('p', { class: 'small-note', style: 'margin-top:12px' }, '原型没有真实数据库 UI；「导入离线库 / 检查更新」在正式版接入 research/ttp 快照。'));
+      body.appendChild(h('div', { style: 'display:flex;gap:8px;margin-top:8px' },
+        h('button', { class: 'soft-btn', 'data-action': 'demo-toast' }, '导入离线库'),
+        h('button', { class: 'text-button', 'data-action': 'demo-toast' }, '检查更新')));
+    }
+    openModal('设置', [tabs, body]);
   }
   function closeModal() {
     var back = document.getElementById('modal-back');
@@ -751,7 +839,7 @@
   }
 
   function pageLabsTrend(root) {
-    root.appendChild(pageHead('化验与趋势', '一图秀', '两条线各按全期范围缩放，纵向不可比；点数据点看原始报告'));
+    root.appendChild(pageHead('化验与趋势', '一图秀', '左侧勾选指标（按分类分组），右侧同图绘制；每条线按全期范围缩放，纵向不可比'));
     renderTrend(root);
     root.appendChild(h('div', { style: 'margin-top:12px' }, aiBtn('labs')));
   }
@@ -1132,11 +1220,20 @@
       var target = document.getElementById('cat-' + chips.indexOf(t));
       if (target) target.scrollIntoView({ block: 'start', behavior: 'smooth' });
     }
-    else if (act === 'pick-metric') {
-      var slot = t.getAttribute('data-slot'), mk = t.getAttribute('data-metric');
-      if (state.trend[slot] === mk) return;
-      state.trend[slot] = mk; render();
+    else if (act === 'sel-metric') {
+      var mk = t.getAttribute('data-metric');
+      var i = state.sel.indexOf(mk);
+      if (t.checked) {
+        if (state.sel.length >= 4) { t.checked = false; toast('一图秀一次最多画 4 条，先取消一条再勾'); return; }
+        if (i < 0) state.sel.push(mk);
+      } else if (i >= 0) { state.sel.splice(i, 1); }
+      render();
     }
+    else if (act === 'settings-tab') { state.settingsTab = t.getAttribute('data-tab'); openSettings(); }
+    else if (act === 'consent') { state.cfg.consent = t.checked; openSettings(); }
+    else if (act === 'mineru-show') { state.cfg.showToken = !state.cfg.showToken; openSettings(); }
+    else if (act === 'mineru-guide') { var g = document.getElementById('mineru-guide'); if (g) g.hidden = !g.hidden; }
+    else if (act === 'demo-toast') { toast('原型演示：此操作在正式版接入'); }
     else if (act === 'toggle-pe') { state.showPE = !state.showPE; render(); }
     else if (act === 'flip') {
       var k = t.getAttribute('data-metric');
@@ -1238,8 +1335,8 @@
     try {
       var qp = new URLSearchParams(location.search);
       if (qp.get('profile') && DEMO.profiles[qp.get('profile')]) state.profile = qp.get('profile');
-      if (qp.get('s1')) state.trend.s1 = qp.get('s1');
-      if (qp.get('s2')) state.trend.s2 = qp.get('s2');
+      if (qp.get('s1')) state.sel[0] = qp.get('s1');
+      if (qp.get('s2')) state.sel[1] = qp.get('s2');
       if (qp.get('tw')) state.timeWindow = qp.get('tw');
       if (qp.get('hidepe') === '1') state.showPE = false;
     } catch (e) { /* 老浏览器忽略 */ }

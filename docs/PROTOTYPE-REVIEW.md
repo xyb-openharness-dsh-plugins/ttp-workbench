@@ -62,3 +62,9 @@
 4. **指标分类展示**：分类指标页顶部加分类快捷 chips（名称 + 项数，点击平滑跳转对应分区），每个分类独立分区标题（项数 + MT02 说明），保持与一图秀同目录同顺序（MT03）。
 
 回归：npm run check exit=0、单测 13/13、probe-ttp-m2 34/34、probe-disease-primer 10/10；截图重渲；版本 0.2.4 已装 Desktop profile。
+
+## 设置与一图秀对齐轮（2026-11-05 晨，用户点名参考 breast workbench）
+
+- **设置三 tab**（对齐小粉宝 CFG_TABS）：工作区（资料根目录示意值 + 三块体积 tile + 备份行）/ 文档解析（MinerU）（同意勾选→未勾选不上传、Token 掩码与替换表单、4 步申请指南、pipeline 固定、Flash 10MB/20 页限制；如实标注「本仓按 §五默认未接入，勾选与保存不联网」）/ 临床数据库（M4 离线快照 193 条 + 通道终态如实记录：chictr_online FAILED、ictrp 两次 FAILED、归档语料未配置）。
+- **一图秀展现**（对齐小粉宝 rail）：改 238px 左 rail + 右主图双栏；rail 三节 = 时间范围（全部/近3月/近6月/近12月）+ 选择指标（按分类分组的 checkbox 列表，带色点与最近值，最多 4 条，超出给 toast）+ 显示内容（置换节点 chip）；图表改为 N 条带等高堆叠（每条按该指标全期范围归一化，末点每带 1 个标签），≤900px 折叠为单列。
+- 回归：npm run check exit=0、单测 13/13、probe-ttp-m2 34/34、probe-disease-primer 10/10；新增验收截图 v0-2-5-*（rail 一图秀 + 设置三 tab）。

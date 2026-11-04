@@ -93,7 +93,7 @@ export function apply(ctx, config = {}) {
   ctx.effect(() => workbench.close(), 'ttp store close')
   const handler = createHostHandler(ctx, workbench)
   ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: API_BASE_HOSTED, handler }), 'ttp routes')
-  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/ttp', handler }), 'ttp ui')
+  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/' + API_PREFIX, handler }), 'ttp ui')
 }
 
 /** UI 入口文件是否存在（装机自检用） */

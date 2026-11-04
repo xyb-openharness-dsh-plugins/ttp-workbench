@@ -2,6 +2,10 @@
 
 只增不删；每条写清"改了什么 + 为什么 + 用户可见结果"。版本号与 VERSION、package.json 三处必须一致。
 
+## 0.2.9 — 2026-11-05
+
+- 修复宿主路由冲突根因：`dsh/index.js` UI 路由从写死 `/ttp` 改为 `'/' + API_PREFIX`（与 lib/identity 同源）；新增 `scripts/check-route-prefix.mjs` 进检查链（断言 UI 路由/客户端入口/API_PREFIX 三者同源，禁止写死字面量）。
+- 背景：同 org 的 takayasu-workbench 0.3.1 因模板复制残留也注册 `/ttp`，宿主报 `duplicate prefix route "/ttp"` 导致一个插件激活失败；其仓已同步修为 `/takayasu` 并升 0.3.2。
 ## 0.2.8 — 2026-11-05
 
 按 FAMILY-INSPECTOR 整仓审查（A–I）修复 16 项 + 补齐临床试验一级菜单。

@@ -109,16 +109,25 @@ if (!bootAt && running && existsSync(STARTUP)) {
 }
 push('本次启动', bootAt ? bootAt.toISOString() : '未运行，无启动时刻', Boolean(bootAt))
 
-/* ---------- 4. 本次运行段里与本包相关的日志 ---------- */
-// 注意：`web boot: 1 entry did not activate` 这行**不带包名**，只过滤包名会漏掉整条失败信号
-// （这个脚本的第一版就漏了，由 test/desktop-load.test.mjs 的反例抓出来）
-const mine = segment.filter((l) => /head-neck-workbench|did not activate|plugin-recovery|plugin-removal/.test(l))
-const failures = mine.filter((l) =>
-  /did not activate/.test(l) ||
-  /plugin-recovery/.test(l) ||
-  new RegExp(`${PKG.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}: failed`).test(l))
-push('本次段相关日志', mine.length ? `${mine.length} 条` : '无', failures.length === 0)
-for (const l of mine.slice(-5)) rows.push({ k: '  日志', v: l.slice(0, 200), ok: !/did not activate|failed/.test(l) })
+/* ---------- 4. 本次运行段里与本包相关的日志 ----------
+   「别的插件失败」不等于「本包失败」：profile 里 40+ 个社区工作台，任何一个缺文件都会打印
+   `<pkg>: Error ...` 与一条不带包名的 `N entries did not activate`。只按 `did not activate`
+   一刀切会把环境问题记成本包装机失败（2026-11-05 实测：4 个兄弟仓缺 demo/，本包被误判）。
+   归属规则：出现本包包名/插件 id 的失败行 → 本包失败；只有别人的失败行 → 警告并列出 id；
+   只有不带包名的计数行且无任何归属行 → 记为待人工（不能证明与本包无关）。 */
+const escapeRe = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const OURS = new RegExp(`${escapeRe(PKG)}|\\b${escapeRe(PKG.split('/').pop().replace(/-workbench$/, ''))}-workbench-main\\b`)
+const mine = segment.filter((l) => OURS.test(l) || /did not activate|plugin-recovery|plugin-removal/.test(l))
+const attributed = segment.filter((l) => /\(@[^)]+\):\s*(?:failed|Error)/.test(l) || /\b[a-z0-9-]+-main:\s*(?:Error|failed)/i.test(l))
+const oursFailures = attributed.filter((l) => OURS.test(l))
+const otherFailures = attributed.filter((l) => !OURS.test(l))
+const genericFailures = segment.filter((l) => /\d+ entries? did not activate/.test(l))
+push('本次段相关日志', mine.length ? `${mine.length} 条` : '无', oursFailures.length === 0)
+if (otherFailures.length) {
+  const ids = [...new Set(otherFailures.map((l) => (l.match(/\((@[^)]+)\):\s*failed/) || l.match(/\(([^)]+)\):\s*Error/) || l.match(/(?:error |\] )([a-z0-9-]+-main):/) || [null, '未知'])[1]))]
+  push('其他插件失败（非本仓）', `${ids.length} 个：${ids.join(', ')}`, true)
+}
+if (oursFailures.length) for (const l of oursFailures.slice(-3)) rows.push({ k: '  本包失败', v: l.slice(0, 200), ok: false })
 
 /* ---------- 5. 服务端 store 数据目录 ---------- */
 push('dshHomePath 数据目录', existsSync(DATA_DIR)
@@ -148,10 +157,15 @@ console.log('界面加载核验（证据全部来自宿主留下的事实）\n')
 for (const r of rows) console.log(`  ${r.ok ? '·' : '!'} ${r.k.padEnd(width)}  ${r.v}`)
 console.log('')
 
-if (failures.some((l) => /did not activate/.test(l))) {
-  console.log('✗ 结论：**本次运行**里插件激活失败（宿主日志有「did not activate」原文，见上）。')
+if (oursFailures.length) {
+  console.log('✗ 结论：**本次运行**里本包激活失败（日志行含本包包名/插件 id，见上）。')
   console.log('  先跑 npm run smoke:activate 复现，再对照宿主 7 条 register 校验。')
   process.exit(1)
+}
+if (genericFailures.length && !attributed.length) {
+  console.log('! 注意：本次运行有「N entries did not activate」，但日志没有逐条归属行，无法证明与本包无关。')
+  console.log('  按「待人工」处理：回看完整日志或重启后再跑本脚本；不要写成通过。')
+  process.exit(3)
 }
 if (siblings.length === 0) {
   console.log(`✗ 结论：装错了 profile —— ${PROFILE} 里一个兄弟工作台都没有，`)

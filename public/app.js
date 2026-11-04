@@ -240,12 +240,28 @@
     container.appendChild(h('div', { class: 'chart-controls' },
       h('button', { 'data-action': 'tw', 'data-tw': 'all', 'aria-pressed': String(state.timeWindow === 'all') }, '全期'),
       h('button', { 'data-action': 'tw', 'data-tw': '90d', 'aria-pressed': String(state.timeWindow === '90d') }, '近 3 个月'),
-      h('button', { 'data-action': 'toggle-pe', 'aria-pressed': String(state.showPE) }, state.showPE ? '隐藏置换节点' : '显示置换节点'),
-      h('select', { 'data-action': 'sel-s1', 'aria-label': '上序列指标' },
-        DEMO.metrics.map(function (m) { var o = h('option', { value: m.key }, m.name); if (m.key === state.trend.s1) o.selected = true; return o; })),
-      h('select', { 'data-action': 'sel-s2', 'aria-label': '下序列指标' },
-        DEMO.metrics.map(function (m) { var o = h('option', { value: m.key }, m.name); if (m.key === state.trend.s2) o.selected = true; return o; }))
-    ));
+      h('button', { 'data-action': 'toggle-pe', 'aria-pressed': String(state.showPE) }, state.showPE ? '隐藏置换节点' : '显示置换节点')));
+    /* 指标点选：按分类分组的上/下序列选择条（不用下拉框） */
+    var picker = h('div', { class: 'metric-picker' });
+    [['s1', '上序列'], ['s2', '下序列']].forEach(function (slot) {
+      var row = h('div', { class: 'pick-row' },
+        h('span', { class: 'pick-label' }, slot[1]));
+      var cur = state.trend[slot[0]];
+      var cats = [];
+      DEMO.metrics.forEach(function (m) { if (cats.indexOf(m.cat) < 0) cats.push(m.cat); });
+      cats.forEach(function (cat) {
+        var group = h('span', { class: 'pick-group' }, h('span', { class: 'pick-cat' }, cat));
+        DEMO.metrics.filter(function (m) { return m.cat === cat; }).forEach(function (m) {
+          group.appendChild(h('button', {
+            class: 'pick-chip', 'data-action': 'pick-metric', 'data-slot': slot[0], 'data-metric': m.key,
+            'aria-pressed': String(cur === m.key)
+          }, m.name));
+        });
+        row.appendChild(group);
+      });
+      picker.appendChild(row);
+    });
+    container.appendChild(picker);
     var panel = h('div', { class: 'chart-panel' });
     container.appendChild(panel);
     var s1m = metricOf(state.trend.s1), s2m = metricOf(state.trend.s2);
@@ -488,6 +504,28 @@
     back._returnFocus = document.activeElement;
     body.querySelector('button, a, [tabindex]') && body.querySelector('button, a, [tabindex]').focus();
   }
+  function openSettings() {
+    var p = P();
+    openModal('设置', [
+      h('div', { class: 'set-group' },
+        h('div', { class: 'set-title' }, '显示'),
+        h('label', { class: 'set-row' }, h('span', null, '大字模式'), h('button', { class: 'soft-btn', 'data-action': 'font' }, document.body.classList.contains('large') ? '关闭大字' : '打开大字'))),
+      h('div', { class: 'set-group' },
+        h('div', { class: 'set-title' }, '数据与隐私'),
+        h('div', { class: 'set-row' }, h('span', null, '资料目录'), h('span', { class: 'set-val' }, '演示态 · 未接入本机目录')),
+        h('div', { class: 'set-row' }, h('span', null, '私密记录'), h('span', { class: 'set-val' }, '看板预览 / 导出 / AI 上下文三处均排除')),
+        h('div', { class: 'set-row' }, h('span', null, '当前档案'), h('span', { class: 'set-val' }, p.name + '（' + p.tag + '）'))),
+      h('div', { class: 'set-group' },
+        h('div', { class: 'set-title' }, '数据口径'),
+        h('div', { class: 'set-row' }, h('span', null, '解读归属'), h('span', { class: 'set-val' }, '仅回顾，不解读；解读归医生')),
+        h('div', { class: 'set-row' }, h('span', null, '化验可比'), h('span', { class: 'set-val' }, '仅同一指标 + 方法 + 机构内比较，不合并、不做差')),
+        h('div', { class: 'set-row' }, h('span', null, '来源标注'), h('span', { class: 'set-val' }, '指南与阈值标注版本；未取得原件处写明「据二次来源」'))),
+      h('div', { class: 'set-group' },
+        h('div', { class: 'set-title' }, '关于'),
+        h('div', { class: 'set-row' }, h('span', null, '版本'), h('span', { class: 'set-val' }, '交互原型 v0.2 · 全部为合成示例')),
+        h('div', { class: 'set-row' }, h('span', null, '疾病概要'), h('button', { class: 'text-button', 'data-action': 'primer' }, '打开 →')))
+    ]);
+  }
   function closeModal() {
     var back = document.getElementById('modal-back');
     back.hidden = true;
@@ -568,6 +606,12 @@
     root.appendChild(h('div', { style: 'margin-top:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center' },
       aiBtn('dash'),
       h('span', { class: 'sub', style: 'font-size:12.5px;color:var(--soft-fg)' }, 'Demo 态：AI 只把问题填进草稿框，不会发送。')));
+  }
+  function statCard(value, label, note) {
+    return h('div', { class: 'stat-card' },
+      h('div', { class: 'stat-label' }, label),
+      h('div', { class: 'stat-value' }, value),
+      h('div', { class: 'stat-note' }, note || ''));
   }
   function quickCard(iconKey, title, note, route) {
     return h('button', { class: 'quick-card', 'data-action': 'go', 'data-view': route },
@@ -659,11 +703,19 @@
 
   function pageLabsCat(root) {
     var p = P();
-    root.appendChild(pageHead('化验与趋势', '分类指标', '与一图秀同一目录、同一顺序（MT03）'));
+    root.appendChild(pageHead('化验与趋势', '分类指标', '按指标分类展示 · 与一图秀同一目录、同一顺序（MT03）'));
     var cats = [];
     DEMO.metrics.forEach(function (m) { if (cats.indexOf(m.cat) < 0) cats.push(m.cat); });
+    var chipRow = h('div', { class: 'cat-chips' });
     cats.forEach(function (cat) {
-      root.appendChild(secTitle(cat, '同一类别独立网格（MT02）'));
+      var n = DEMO.metrics.filter(function (m) { return m.cat === cat; }).length;
+      chipRow.appendChild(h('a', { href: '#cat-' + cats.indexOf(cat), class: 'cat-chip', 'data-action': 'jump-cat', 'data-cat': cat }, cat + ' · ' + n + ' 项'));
+    });
+    root.appendChild(chipRow);
+    cats.forEach(function (cat) {
+      var sec = secTitle(cat, DEMO.metrics.filter(function (m) { return m.cat === cat; }).length + ' 项 · 同一类别独立网格（MT02）');
+      sec.id = 'cat-' + cats.indexOf(cat);
+      root.appendChild(sec);
       var g = h('div', { class: 'mcard-grid' });
       DEMO.metrics.filter(function (m) { return m.cat === cat; }).forEach(function (m) { g.appendChild(mcard(m)); });
       root.appendChild(g);
@@ -732,9 +784,10 @@
     var pub = DEMO.filterPublic(p.pe);
     root.appendChild(pageHead('血浆置换', '置换记录', '共 ' + pub.length + ' 次（私密 ' + DEMO.privateCount(p.pe) + ' 次不含）· 按发作分组'));
     root.appendChild(secTitle('合计', '次数与时长都只做回顾'));
-    root.appendChild(h('div', { class: 'grid' },
-      h('div', { class: 'card' }, h('div', { class: 'm-value' }, String(pub.length)), h('div', { class: 'sub' }, '累计置换次数')),
-      h('div', { class: 'card' }, h('div', { class: 'm-value' }, String(pub.reduce(function (a, s) { return a + s.durationMin; }, 0))), h('div', { class: 'sub' }, '累计记录时长（分钟）'))));
+    root.appendChild(h('div', { class: 'stat-row' },
+      statCard(String(pub.length), '累计置换次数', pub.length ? '最近一次 ' + pub[pub.length - 1].date : '—'),
+      statCard(String(pub.reduce(function (a, s) { return a + s.durationMin; }, 0)), '累计记录时长（分钟）', '按记录单逐次累加，非医疗结论'),
+      statCard(String(p.episodes.length), '发作次数', '状态文字均为医生原文')));
     root.appendChild(secTitle('按发作分组', '折叠卡：点发作标题展开'));
     p.episodes.forEach(function (e) {
       var sess = pub.filter(function (s) { return s.episode === e.id; });
@@ -1060,7 +1113,7 @@
     else if (act === 'profiles') openProfiles();
     else if (act === 'use-profile') { state.profile = t.getAttribute('data-profile'); state.flipped = {}; state.candidates = { labs: [] }; state.checks = {}; closeModal(); render(); toast('已切换到 ' + P().name); }
     else if (act === 'dataroot') openModal('资料目录（演示）', [h('p', null, '原型未接入宿主：正式版里这里会显示工作区资料目录与连接状态。')]);
-    else if (act === 'settings') openModal('设置（演示）', [h('p', null, '口径：仅回顾不解读；不同方法不合并。大字模式请点顶栏「大字 Aa」。')]);
+    else if (act === 'settings') openSettings();
     else if (act === 'font') { var b = document.body; b.classList.toggle('large'); t.setAttribute('aria-pressed', String(b.classList.contains('large'))); }
     else if (act === 'ai') toggleAI();
     else if (act === 'ai-collapse') toggleAI(false);
@@ -1073,6 +1126,17 @@
     else if (act === 'pv-back') closePageView(true);
     else if (act === 'modal-close') closeModal();
     else if (act === 'tw') { state.timeWindow = t.getAttribute('data-tw'); render(); }
+    else if (act === 'jump-cat') {
+      ev.preventDefault();
+      var chips = Array.prototype.slice.call(document.querySelectorAll('.cat-chips .cat-chip'));
+      var target = document.getElementById('cat-' + chips.indexOf(t));
+      if (target) target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+    else if (act === 'pick-metric') {
+      var slot = t.getAttribute('data-slot'), mk = t.getAttribute('data-metric');
+      if (state.trend[slot] === mk) return;
+      state.trend[slot] = mk; render();
+    }
     else if (act === 'toggle-pe') { state.showPE = !state.showPE; render(); }
     else if (act === 'flip') {
       var k = t.getAttribute('data-metric');
@@ -1116,11 +1180,6 @@
       ]);
     }
     else if (act === 'do-export') { closeModal(); doExport(); }
-  });
-  document.addEventListener('change', function (ev) {
-    var t = ev.target;
-    if (t.matches('[data-action=sel-s1]')) { state.trend.s1 = t.value; render(); }
-    if (t.matches('[data-action=sel-s2]')) { state.trend.s2 = t.value; render(); }
   });
   document.addEventListener('keydown', function (ev) {
     if (ev.key !== 'Escape') return;

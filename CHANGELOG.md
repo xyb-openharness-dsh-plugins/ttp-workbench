@@ -55,3 +55,7 @@
 ## 0.1.0 — 2026-11-03
 
 - 由社区脚手架 dsh-wb-cli@1.10.0-rc.3 (e9bbac9) 初始化，仅有注册骨架与健康接口，无业务功能。
+## 0.2.10（2026-11-07，装机热修）
+
+- 修复 Desktop 装机态「疾病概要」两处点击无效（顶栏 ? 与状态卡按钮）：primer 资源从 `../assets/patterns/`（装机态解析到 /api/ttp/assets → 404 → DiseasePrimer 缺失）改为**同目录** primer.css/primer.js（原型与 public 各自携带；aml/小苗宝同款修法）。
+- 装机态模拟（public 挂 /api/ttp/ui/ 前缀）实测：DiseasePrimer 加载 ✓、两入口开面板 ✓。

@@ -26,3 +26,10 @@ G1/G2/G3/V1/V2：自动签认通过（待晨审追认）；V3：部分通过（0
 2. 品牌占位名「小宁宝」；MinerU 未接入默认值
 3. 发布：tag v0.2.8 + release（命令已备）；BACKLOG PR（只改状态列）
 4. NMPA 批准文号人工核；0 访谈、0 临床审核（阈值/频次全部【待核】）
+
+## 2026-11-07 装机热修（0.2.10）
+- 用户反馈：装机态「疾病概要」两处点击无效（顶栏 ? 与状态卡按钮）。
+- 根因：primer 资源用越级相对路径（public/index.html 的 ../assets/patterns/disease-primer.js），装机态 UI 挂 /api/ttp/ui/ → 解析成 /api/ttp/assets/... → 404 → DiseasePrimer 未定义。
+- 修复：primer.css/primer.js 同目录化（原型与 public 各自携带，引用改同目录）；装机态模拟（public 挂 /api/ttp/ui/ 前缀）两入口实测可开面板。
+- 发布：0.2.10 tgz 重新装入 Desktop profile（含 primer.js 实查）；共享 profile 的 aatd 悬空 pin 顺带对齐 0.6.1（仅修引用）。
+- 回流：starter LESSONS L66（越级相对路径在装机态必 404；primer 资源同目录化）。

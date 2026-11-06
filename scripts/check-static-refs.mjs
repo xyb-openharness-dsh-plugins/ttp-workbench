@@ -73,6 +73,13 @@ const refs = localRefs(html)
 if (!refs.length) notes.push('页面里没有任何本地相对引用（全是外链或占位符）')
 
 for (const { ref, kind } of refs) {
+  /* 越级相对引用（../）在装机态必 404：UI 挂在 /api/<slug>/ui/ 子路径下，
+     ../ 会解析进 API 命名空间（2026-11-07 小宁宝 0.2.9 实测：primer 两处点击全哑）。
+     资源必须同目录化（原型目录与 public/ 各自携带）。 */
+  if (ref.split('/').includes('..')) {
+    problems.push(`${relative(ROOT, pagePath)} 使用越级相对引用 \`${ref}\` —— 装机态 UI 挂 /api/<slug>/ui/ 子路径时解析到 API 命名空间并 404；请把资源同目录化`)
+    continue
+  }
   /* 绝对路径（/x.js）按 public 根解析；相对路径按页面目录 */
   const target = ref.startsWith('/')
     ? join(ROOT, ref.replace(/^\//, ''))

@@ -235,8 +235,12 @@ export function buildPanel(React, layout, host) {
     const dragHostRef = useRef(null)
     const frameRef = useRef(null)
 
-    const hasConversation = Boolean(conversation)
-    const canOpenSession = typeof service?.ensureSession === 'function'
+    const [sessionTick, setSessionTick] = useState(0)
+    /* 会话归属只问宿主：没会话时 customFrame 也会传隐藏 conversation 容器，不能用它判断 */
+    const activeSession = (() => { try { const id = service?.currentSession?.(); return id && service?.ownsSession?.(id) ? id : null } catch { return null } })()
+    void sessionTick
+    const hasConversation = Boolean(activeSession) // pane-contract-allow: 反例说明见上
+    const canOpenSession = typeof service?.newSession === 'function'
 
     useEffect(() => {
       setPhase('loading'); setDetail('')
@@ -262,7 +266,7 @@ export function buildPanel(React, layout, host) {
     // 挂载后消化未送达的草稿（composer 就绪一轮一次），并订阅会话变化。
     useEffect(() => {
       const interval = setInterval(() => { if (flushDraft()) setNote('草稿已填入会话，按回车发送') }, 500)
-      const unsubscribe = service?.subscribe?.(() => setNote(''))
+      const unsubscribe = service?.subscribe?.(() => { setNote(''); setSessionTick((n) => n + 1) })
       return () => { clearInterval(interval); unsubscribe?.() }
     }, [])
 
@@ -340,7 +344,13 @@ export function buildPanel(React, layout, host) {
       }
       setConnecting(true)
       try {
-        const id = await service.ensureSession({})
+        let workspaceId
+        try { workspaceId = service?.defaultWorkspace?.()?.workspaceId } catch { workspaceId = undefined }
+        const id = await service.newSession(workspaceId)
+        if (!id) {
+          setNote('已取消资料目录选择，没有创建会话。可以再次点击「AI 对话」重试。')
+          return
+        }
         setPaneOpen(true)
         rememberDraft({ sessionId: id, prompt: prompt || onboardingPrompt() })
         setNote(flushDraft()
